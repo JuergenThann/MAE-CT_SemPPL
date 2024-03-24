@@ -1,16 +1,17 @@
 channels:
-  - conda-forge
   - pytorch
+  - nvidia
+  - conda-forge
   - defaults
 dependencies:
   - python=3.9
   - pytorch
+  - pytorch-cuda=11.7
   - torchvision
   - einops
   - torchmetrics==0.11.0
   - wandb
   - timm
-  - cyanure-mkl
   - pyyaml
   - scikit-learn
   - umap-learn
@@ -19,6 +20,8 @@ dependencies:
   - pytest
   - pip
   - pip:
+      - cyanure-mkl
       - kappaconfig==1.0.29
       - kappadata==1.0.99
       - kappaprofiler==1.0.9
+      - pytorch-concurrent-dataloader

@@ -72,7 +72,13 @@ def all_gather_grad_overwrite(x):
 def all_gather_nograd(x):
     x, og_device = _prepare_tensor(x)
     if is_distributed():
-        result = [torch.zeros_like(x) for _ in range(get_world_size())]
+        shapes = [torch.empty_like(torch.tensor(x.shape, device=x.device)) for _ in range(get_world_size())]
+        dist.all_gather(shapes, torch.tensor(x.shape, device=x.device))
+        result = [
+            torch.empty(*shape.tolist(), dtype=x.dtype, device=x.device) if shape.numel() > 0
+            else torch.tensor(0, dtype=x.dtype, device=x.device)
+            for shape in shapes
+        ]
         dist.all_gather(result, x)
         if result[0].ndim == 0:
             # scalars can't be concatenated
@@ -104,7 +110,24 @@ def all_reduce_sum_grad(x):
     return x.to(og_device)
 
 
+@torch.no_grad()
+def all_reduce_sum_nograd(x):
+    x, og_device = _prepare_tensor(x)
+    if is_distributed():
+        # all_reduce is differentiable https://github.com/pytorch/pytorch/issues/58005
+        dist.all_reduce(x, op=dist.ReduceOp.SUM)
+    return x.to(og_device)
+
+
 def all_reduce_mean_grad(x):
+    x, og_device = _prepare_tensor(x)
+    if is_distributed():
+        x = all_reduce_sum_grad(x) / get_world_size()
+    return x.to(og_device)
+
+
+@torch.no_grad()
+def all_reduce_mean_nograd(x):
     x, og_device = _prepare_tensor(x)
     if is_distributed():
         x = all_reduce_sum_grad(x) / get_world_size()

@@ -56,6 +56,8 @@ class StaticConfig:
         if "local_dataset_path" not in self._config:
             return None
         path = Path(self._config["local_dataset_path"]).expanduser()
+        if not path.exists():
+            path.mkdir(parents=True)
         assert path.exists(), f"local_dataset_path '{path}' doesn't exist"
         # managed runs (SLURM/PBS) have non-persistent storage
         # - all processes work with the same data -> wait for local rank0 to copy data via barrier

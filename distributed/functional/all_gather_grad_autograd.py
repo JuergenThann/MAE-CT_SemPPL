@@ -14,7 +14,13 @@ class AllGatherGradAutograd(torch.autograd.Function):
     # noinspection PyMethodOverriding
     @staticmethod
     def forward(ctx, x):
-        output = [torch.zeros_like(x) for _ in range(dist.get_world_size())]
+        shapes = [torch.empty_like(torch.tensor(x.shape, device=x.device)) for _ in range(dist.get_world_size())]
+        dist.all_gather(shapes, torch.tensor(x.shape, device=x.device))
+        output = [
+            torch.empty(*shape.tolist(), dtype=x.dtype, device=x.device) if shape.numel() > 0
+            else torch.tensor(0, dtype=x.dtype, device=x.device)
+            for shape in shapes
+        ]
         dist.all_gather(output, x)
         # without the tuple call here, the gradient is not propagated for some reason
         # (therefore the backward is then not called)
@@ -22,7 +28,8 @@ class AllGatherGradAutograd(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, *grads):
-        all_gradients = torch.stack(grads)
-        dist.all_reduce(all_gradients, op=dist.ReduceOp.SUM)
-        grad_out = all_gradients[dist.get_rank()]
+        for i, grad in enumerate(grads):
+            dist.all_reduce(grad, op=dist.ReduceOp.SUM)
+            if i == dist.get_rank():
+                grad_out = grad
         return grad_out

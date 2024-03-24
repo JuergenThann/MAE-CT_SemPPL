@@ -116,9 +116,12 @@ def type_from_name(module_names, type_names, error_on_not_found=True):
 
 def _get_type_from_module(module, type_name):
     type_name_lowercase = type_name.lower().replace("_", "")
-    possible_type_names = list(filter(lambda k: k.lower() == type_name_lowercase, module.__dict__.keys()))
+    possible_type_names = list(filter(
+        lambda kv: isinstance(kv[1], type) and kv[0].lower() == type_name_lowercase,
+        module.__dict__.items()
+    ))
     assert len(possible_type_names) <= 1, f"error found more than one possible type for {type_name_lowercase}"
 
     if len(possible_type_names) == 1:
-        return getattr(module, possible_type_names[0])
+        return getattr(module, possible_type_names[0][0])
     return None

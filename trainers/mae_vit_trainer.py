@@ -4,14 +4,18 @@ import torch.nn as nn
 from losses import loss_fn_from_kwargs
 from losses.mae_vit_loss import mae_vit_loss
 from models.vit.mask_generators import mask_generator_from_kwargs
-from utils.factory import create
+from utils.factory import create, create_collection
 from .base.sgd_trainer import SgdTrainer
 
 
 class MaeVitTrainer(SgdTrainer):
     def __init__(self, mask_generator, normalize_pixels, loss_function=None, **kwargs):
         super().__init__(**kwargs)
-        self.mask_generator = create(mask_generator, mask_generator_from_kwargs, update_counter=self.update_counter)
+        if isinstance(mask_generator, list):
+            self.mask_generator = create_collection(mask_generator, mask_generator_from_kwargs,
+                                                    update_counter=self.update_counter)
+        else:
+            self.mask_generator = create(mask_generator, mask_generator_from_kwargs, update_counter=self.update_counter)
         self.normalize_pixels = normalize_pixels
         if loss_function is not None:
             self.loss_function = create(loss_function, loss_fn_from_kwargs, reduction="none")

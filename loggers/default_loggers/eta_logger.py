@@ -7,6 +7,8 @@ from distributed.config import is_rank0
 from loggers.base.logger_base import LoggerBase
 from utils.formatting_util import short_number_str
 
+from string import Template
+
 
 class EtaLogger(LoggerBase):
     class LoggerWasCalledHandler(logging.Handler):
@@ -16,6 +18,16 @@ class EtaLogger(LoggerBase):
 
         def emit(self, _):
             self.was_called = True
+
+    @staticmethod
+    def strfdelta(tdelta):
+        d = tdelta.days
+        h, rem = divmod(tdelta.seconds, 3600)
+        m, s = divmod(rem, 60)
+
+        h += d*24
+
+        return f"{h:02d}:{m:02d}:{s:02d}"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -94,16 +106,14 @@ class EtaLogger(LoggerBase):
         time_till_next_log = timedelta(seconds=updates_till_next_log * average_update_time)
         next_log_eta = now + time_till_next_log
         # convert to datetime for formatting
-        past_next_log_time = datetime.utcfromtimestamp(self.time_since_last_log)
-        time_till_next_log = datetime.utcfromtimestamp(time_till_next_log.total_seconds())
+        past_next_log_time = datetime.utcfromtimestamp(self.time_since_last_log)-datetime.utcfromtimestamp(0)
 
         # training ETA
         remaining_training_updates = update_counter.end_checkpoint.update - update_counter.cur_checkpoint.update
         remaining_training_time = timedelta(seconds=remaining_training_updates * average_update_time)
         training_eta = now + remaining_training_time
         # convert to datetime for formatting
-        past_training_time = datetime.utcfromtimestamp(self.total_time)
-        remaining_training_time = datetime.utcfromtimestamp(remaining_training_time.total_seconds())
+        past_training_time = datetime.utcfromtimestamp(self.total_time)-datetime.utcfromtimestamp(0)
 
         if is_rank0():
             logstr = (
@@ -111,11 +121,12 @@ class EtaLogger(LoggerBase):
                 f"update {format(cur_update, self.update_format)}/{update_counter.end_checkpoint.update} "
                 f"sample {short_number_str(cur_sample):>6}/{short_number_str(update_counter.end_checkpoint.sample)}"
                 f" | next_log {format(updates_since_last_log, self.updates_per_log_interval_format)}/"
-                f"{format(updates_per_log_interval, self.updates_per_log_interval_format)} | "
-                f"next_log_eta {next_log_eta.strftime('%H:%M:%S')} "
-                f"({time_till_next_log.strftime('%M:%S')}->{past_next_log_time.strftime('%M:%S')}) | "
-                f"training_eta {training_eta.strftime('%H:%M:%S')} "
-                f"({remaining_training_time.strftime('%H:%M:%S')}->{past_training_time.strftime('%H:%M:%S')}) | "
+                f"{format(updates_per_log_interval, self.updates_per_log_interval_format)}, "
+                f"eta {next_log_eta.strftime('%Y-%m-%d %H:%M:%S')} "
+                f"({EtaLogger.strfdelta(time_till_next_log)}->{EtaLogger.strfdelta(past_next_log_time)}) | "
+                f"training_eta {training_eta.strftime('%Y-%m-%d %H:%M:%S')} "
+                f"({EtaLogger.strfdelta(remaining_training_time)}->"
+                f"{EtaLogger.strfdelta(past_training_time)}) | "
                 f"avg_update {average_update_time:.2f}s"
             )
             if self.handler.was_called:

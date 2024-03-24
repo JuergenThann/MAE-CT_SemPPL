@@ -1,4 +1,4 @@
-stage_name: stage1
+stage_name: stage1_mae
 datasets:
   train:
     kind: image_net

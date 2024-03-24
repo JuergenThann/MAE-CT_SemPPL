@@ -65,7 +65,7 @@ model:
       kind: previous_run_initializer
       model_name: mae_contheads_vit.encoder
       stage_id: ???
-      stage_name: stage1
+      stage_name: stage1_mae
   contrastive_heads:
     nnclr:
       kind: contrastive_heads.nnclr_head

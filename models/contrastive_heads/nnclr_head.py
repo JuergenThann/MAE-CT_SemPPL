@@ -33,8 +33,8 @@ class NnclrHead(NnclrNoqueueHead):
         return loss, dict(nn_accuracy=nn_acc)
 
     @torch.no_grad()
-    def get_queue_similarity_matrix(self, normed_projected, ids):
-        similarity_matrix = super().get_queue_similarity_matrix(normed_projected, ids=ids)
+    def get_queue_similarity_matrix(self, normed_projected, ids, queue_idx=0):
+        similarity_matrix = super().get_queue_similarity_matrix(normed_projected, ids=ids, queue_idx=queue_idx)
         if self.local_scaling_knn == 0:
             return similarity_matrix
 

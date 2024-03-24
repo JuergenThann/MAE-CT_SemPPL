@@ -1,0 +1,331 @@
+vars:
+  max_epochs: 160
+
+stage_name: linear_probing
+datasets:
+  train:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar10
+    num_classes: 10
+    torchvision_args:
+      kind: CIFAR10
+      train: true
+      download: false
+    dataset_wrappers:
+      - kind: classwise_subset_wrapper
+        end_percent: 0.1
+    x_transform:
+    - kind: kd_random_resized_crop
+      size: 32
+      scale:
+      - 0.08
+      - 1.0
+      interpolation: bicubic
+    - kind: random_horizontal_flip
+    - kind: kd_image_net_norm
+  train_unaugmented:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar10
+    num_classes: 10
+    torchvision_args:
+      kind: CIFAR10
+      train: true
+      download: false
+    x_transform:
+      - kind: kd_image_net_norm
+  test:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar10
+    num_classes: 10
+    torchvision_args:
+      kind: CIFAR10
+      train: false
+      download: false
+    x_transform:
+      - kind: kd_image_net_norm
+  test_small:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar10
+    num_classes: 10
+    torchvision_args:
+      kind: CIFAR10
+      train: false
+      download: false
+    dataset_wrappers:
+      - kind: classwise_subset_wrapper
+        end_index: 200
+    x_transform:
+      - kind: kd_image_net_norm
+model:
+  kind: backbone_head
+  backbone:
+    kind: vit.vit_mae
+    patch_size: 4
+    embedding_dim: 192
+    depth: 12
+    attention_heads: 3
+    is_frozen: true
+    initializer:
+      checkpoint: last
+      kind: previous_run_initializer
+      model_name: mae_contheads_vit.target_encoder
+      stage_id: 7nm8len0
+      stage_name: stage1_semppl
+  head:
+    kind: heads.multi_linear_head
+    initializers:
+      default:
+        kind: trunc_normal_initializer
+        std: 0.01
+    optimizers:
+      sgd_lr01_wupcos_wd0:
+        kind: sgd
+        lr: 0.1
+        momentum: 0.9
+        schedule:
+        - end_percent: 10.0
+          kind: linear
+        - kind: cosine_annealing
+      sgd_lr009_wupcos_wd0:
+        kind: sgd
+        lr: 0.09
+        momentum: 0.9
+        schedule:
+        - end_percent: 10.0
+          kind: linear
+        - kind: cosine_annealing
+      sgd_lr008_wupcos_wd0:
+        kind: sgd
+        lr: 0.08
+        momentum: 0.9
+        schedule:
+        - end_percent: 10.0
+          kind: linear
+        - kind: cosine_annealing
+      sgd_lr007_wupcos_wd0:
+        kind: sgd
+        lr: 0.07
+        momentum: 0.9
+        schedule:
+        - end_percent: 10.0
+          kind: linear
+        - kind: cosine_annealing
+      sgd_lr006_wupcos_wd0:
+        kind: sgd
+        lr: 0.06
+        momentum: 0.9
+        schedule:
+        - end_percent: 10.0
+          kind: linear
+        - kind: cosine_annealing
+      sgd_lr005_wupcos_wd0:
+        kind: sgd
+        lr: 0.05
+        momentum: 0.9
+        schedule:
+        - end_percent: 10.0
+          kind: linear
+        - kind: cosine_annealing
+      sgd_lr004_wupcos_wd0:
+        kind: sgd
+        lr: 0.04
+        momentum: 0.9
+        schedule:
+        - end_percent: 10.0
+          kind: linear
+        - kind: cosine_annealing
+      sgd_lr003_wupcos_wd0:
+        kind: sgd
+        lr: 0.03
+        momentum: 0.9
+        schedule:
+        - end_percent: 10.0
+          kind: linear
+        - kind: cosine_annealing
+      sgd_lr002_wupcos_wd0:
+        kind: sgd
+        lr: 0.02
+        momentum: 0.9
+        schedule:
+        - end_percent: 10.0
+          kind: linear
+        - kind: cosine_annealing
+      sgd_lr001_wupcos_wd0:
+        kind: sgd
+        lr: 0.01
+        momentum: 0.9
+        schedule:
+        - end_percent: 10.0
+          kind: linear
+        - kind: cosine_annealing
+    poolings:
+      cls:
+        # use CLS token
+        kind: class_token
+        # average pooling
+        # kind: mean_patch
+
+trainer:
+  kind: classification_trainer
+  max_epochs: ${vars.max_epochs}
+  effective_batch_size: 128
+  precision: bfloat16
+  log_every_n_epochs: 1
+  loggers:
+    - kind: accuracy_logger
+      every_n_epochs: 1
+      dataset_key: train
+    - kind: accuracy_logger
+      every_n_epochs: 1
+      dataset_key: test
+    - kind: loss_logger
+      every_n_epochs: 1
+      dataset_key: train
+    - kind: loss_logger
+      every_n_epochs: 1
+      dataset_key: test
+    - kind: checkpoint_logger
+      save_latest_optim: false
+      save_optim: false
+    - kind: best_model_logger
+      every_n_epochs: 1
+      metric_key: accuracy1/test/cls_sgd_lr01_wupcos_wd0_default
+      model_name: backbone_head.head.cls_sgd_lr01_wupcos_wd0_default
+    - kind: best_model_logger
+      every_n_epochs: 1
+      metric_key: accuracy1/test/cls_sgd_lr009_wupcos_wd0_default
+      model_name: backbone_head.head.cls_sgd_lr009_wupcos_wd0_default
+    - kind: best_model_logger
+      every_n_epochs: 1
+      metric_key: accuracy1/test/cls_sgd_lr008_wupcos_wd0_default
+      model_name: backbone_head.head.cls_sgd_lr008_wupcos_wd0_default
+    - kind: best_model_logger
+      every_n_epochs: 1
+      metric_key: accuracy1/test/cls_sgd_lr007_wupcos_wd0_default
+      model_name: backbone_head.head.cls_sgd_lr007_wupcos_wd0_default
+    - kind: best_model_logger
+      every_n_epochs: 1
+      metric_key: accuracy1/test/cls_sgd_lr006_wupcos_wd0_default
+      model_name: backbone_head.head.cls_sgd_lr006_wupcos_wd0_default
+    - kind: best_model_logger
+      every_n_epochs: 1
+      metric_key: accuracy1/test/cls_sgd_lr005_wupcos_wd0_default
+      model_name: backbone_head.head.cls_sgd_lr005_wupcos_wd0_default
+    - kind: best_model_logger
+      every_n_epochs: 1
+      metric_key: accuracy1/test/cls_sgd_lr004_wupcos_wd0_default
+      model_name: backbone_head.head.cls_sgd_lr004_wupcos_wd0_default
+    - kind: best_model_logger
+      every_n_epochs: 1
+      metric_key: accuracy1/test/cls_sgd_lr003_wupcos_wd0_default
+      model_name: backbone_head.head.cls_sgd_lr003_wupcos_wd0_default
+    - kind: best_model_logger
+      every_n_epochs: 1
+      metric_key: accuracy1/test/cls_sgd_lr002_wupcos_wd0_default
+      model_name: backbone_head.head.cls_sgd_lr002_wupcos_wd0_default
+    - kind: best_model_logger
+      every_n_epochs: 1
+      metric_key: accuracy1/test/cls_sgd_lr001_wupcos_wd0_default
+      model_name: backbone_head.head.cls_sgd_lr001_wupcos_wd0_default
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy1/train*
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy1/train*
+      log_absolute_best: true
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy1/test*
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy1/test*
+      log_absolute_best: true
+    - kind: feature_umap_logger
+      dataset_key: test_small
+      every_n_epochs: ${vars.max_epochs}
+      n_components: 2
+      n_neighbors: 100
+      min_dist: 0.2
+      metric: 'euclidean'
+      extractors:
+        - kind: generic_extractor
+          model_property_path: head.layers["cls_sgd_lr001_wupcos_wd0_default"].pooling
+    - kind: knn_metrics_logger
+      every_n_epochs: ${vars.max_epochs}
+      train_dataset_key: train_unaugmented
+      test_dataset_key: test
+      extractors:
+        - kind: generic_extractor
+          model_property_path: head.layers["cls_sgd_lr001_wupcos_wd0_default"].pooling
+      knns:
+        - 1
+        - 2
+        - 3
+        - 5
+        - 8
+        - 13
+        - 21
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn01/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn01/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn02/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn02/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn03/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn03/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn05/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn05/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn08/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn08/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn13/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn13/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn21/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn21/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn*
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn*
+
+
+summary_summarizers:
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy1/train*/last
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy1/train*/max
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy1/test*/last
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy1/test*/max
+  - kind: best_metric_summary_summarizer
+    pattern: knn_accuracy/knn*/GenericExtractor-batchnorm/train_unaugmented-test/max
+  - kind: best_metric_summary_summarizer
+    pattern: nn_purity/knn*/GenericExtractor-batchnorm/train_unaugmented-test/max

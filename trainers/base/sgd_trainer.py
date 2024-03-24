@@ -3,6 +3,7 @@ from torch.cuda.amp import GradScaler
 from torch.utils.data import DistributedSampler
 
 from distributed.config import is_managed, get_world_size, get_rank
+from distributed.gather import all_reduce_mean_grad
 from initializers import initializer_from_kwargs
 from initializers.resume_initializer import ResumeInitializer
 from loggers.base.logger_base import LoggerBase
@@ -22,6 +23,8 @@ from utils.seed import set_random_states
 from utils.update_counter import UpdateCounter
 from .early_stopper import EarlyStopper
 from .trainer_base import TrainerBase
+
+from utils.logging_util import log_from_all_ranks
 
 
 class SgdTrainer(TrainerBase):
@@ -233,6 +236,7 @@ class SgdTrainer(TrainerBase):
                     LoggerBase.call_before_every_accumulation_step(loggers, model=model)
 
                     model.train()
+
                     # update contains implicit cuda synchronization points (.detach().cpu(), .item())
                     with kp.named_profile("update"):
                         losses, update_outputs = self.update(
@@ -342,6 +346,7 @@ class SgdTrainer(TrainerBase):
             # make sure get_loss returns loss of shape (batch_size,)
             # assert total_loss.ndim == 1
             total_loss = total_loss.mean() / accumulation_steps
+            # total_loss = all_reduce_mean_grad(total_loss)
 
         if not self.disable_backward:
             with kp.named_profile_async("backward"):

@@ -63,10 +63,10 @@ class ImageFolder(XTransformDatasetBase):
 
         # initialize caching strategy
         if caching_mode is None:
-            self.dataset = TVImageFolder(source_root)
+            self.dataset = TVImageFolder(source_root, class_to_idx=self.get_class_to_idx())
         elif caching_mode == "shared_dict":
             self.logger.info(f"data_caching_mode: shared_dict")
-            ds = TVImageFolder(source_root, loader=raw_image_loader)
+            ds = TVImageFolder(source_root, loader=raw_image_loader, class_to_idx=self.get_class_to_idx())
             self.dataset = SharedDictDataset(dataset=ds, transform=raw_image_folder_sample_to_pil_sample)
         else:
             raise NotImplementedError
@@ -82,6 +82,10 @@ class ImageFolder(XTransformDatasetBase):
         - e.g. /bottle (MVTec)
         """
         raise NotImplementedError
+
+    def get_class_to_idx(self):
+        """ returns a dict mapping class names to idx """
+        return None
 
     def __len__(self):
         return len(self.dataset)
@@ -101,3 +105,10 @@ class ImageFolder(XTransformDatasetBase):
     @property
     def n_classes(self):
         return len(self.dataset.classes)
+
+    @property
+    def targets(self):
+        dataset = self.dataset
+        if isinstance(dataset, SharedDictDataset):
+            dataset = dataset.dataset
+        return dataset.targets

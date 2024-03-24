@@ -49,11 +49,15 @@ class NnclrOracleHead(NnclrNoqueueHead):
             return idx, nearest_neighbor
 
     @torch.no_grad()
-    def get_queue_similarity_matrix(self, normed_projected, ids):
-        similarity_matrix = normed_projected @ self.queue.T
+    def get_queue_similarity_matrix(self, normed_projected, ids, queue_idx=0):
+        assert queue_idx < self.num_queues
+        queue = self.queue if self.num_queues == 1 else self.queue[queue_idx]
+        queue_id = self.queue_id if self.num_queues == 1 else self.queue_id[queue_idx]
+
+        similarity_matrix = normed_projected @ queue.T
         if self.exclude_self_from_queue:
             # check if queue contains embeddings of the same sample of the previous epoch
-            is_own_id = self.queue_id[None, :] == ids[:, None]
+            is_own_id = queue_id[None, :] == ids[:, None]
             # set similarity to self to -1
             similarity_matrix[is_own_id] = -1.
         return similarity_matrix

@@ -6,7 +6,7 @@ class WandbConfig:
         self.mode = mode
         if not self.is_disabled:
             assert host is not None and isinstance(host, str), f"wandb host is required (got '{host}')"
-            assert entity is not None and isinstance(entity, str), f"wandb entity is required (got '{project}')"
+            assert entity is not None and isinstance(entity, str), f"wandb entity is required (got '{entity}')"
             assert project is not None and isinstance(project, str), f"wandb project is required (got '{project}')"
         self.host = host
         self.entity = entity

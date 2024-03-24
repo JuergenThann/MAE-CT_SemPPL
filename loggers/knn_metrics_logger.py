@@ -1,7 +1,7 @@
 from functools import partial
 
 from kappadata import ModeWrapper
-from metrics.functional.auprc import auprc
+from torcheval.metrics.functional import binary_auprc
 from torchmetrics.functional.classification import binary_auroc
 
 from loggers.base.multi_dataset_logger import MultiDatasetLogger
@@ -10,6 +10,7 @@ from models.extractors import extractor_from_kwargs
 from utils.factory import create_collection
 from utils.formatting_util import dict_to_string
 from utils.object_from_kwargs import objects_from_kwargs
+import numpy as np
 
 
 class KnnMetricsLogger(MultiDatasetLogger):
@@ -93,10 +94,13 @@ class KnnMetricsLogger(MultiDatasetLogger):
 
                 # log (per view)
                 forward_kwargs_str = f"/{dict_to_string(self.forward_kwargs)}" if len(self.forward_kwargs) > 0 else ""
+                max_purity_length = int(np.max([np.ceil(np.log10(purity)) for purity in purities.keys()]))
                 for knn in purities.keys():
                     feature_key_bn = f"{feature_key}-batchnorm" if batch_normalize else feature_key
                     key = (
-                        f"knn{knn}/{feature_key_bn}/{self.train_dataset_key}-{self.test_dataset_key}"
+                        f"knn{str(knn).zfill(max_purity_length)}/"
+                        f"{feature_key_bn}/"
+                        f"{self.train_dataset_key}-{self.test_dataset_key}"
                         f"{forward_kwargs_str}"
                     )
                     purity = purities[knn]
@@ -111,7 +115,7 @@ class KnnMetricsLogger(MultiDatasetLogger):
                         logger_info_dict[f"knn_accuracy/{key}"] = accuracy
                     else:
                         test_auroc = binary_auroc(preds=scores[knn], target=test_y)
-                        test_auprc = auprc(preds=scores[knn], target=test_y)
+                        test_auprc = binary_auprc(input=scores[knn], target=test_y)
                         self.logger.info(f"knn_auroc/{key}: {test_auroc:.4f}")
                         self.logger.info(f"knn_auprc/{key}: {test_auprc:.4f}")
                         self.writer.add_scalar(f"knn_auroc/{key}", test_auroc, update_counter=update_counter)

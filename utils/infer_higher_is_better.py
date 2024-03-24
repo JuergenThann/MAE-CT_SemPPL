@@ -7,6 +7,7 @@ LOWER_IS_BETTER_KEYS = [
 ]
 HIGHER_IS_BETTER_KEYS = [
     "accuracy",
+    "accuracy1",
     "ap",
     "auroc",
     "auprc",
@@ -14,6 +15,8 @@ HIGHER_IS_BETTER_KEYS = [
     "eigenvalue_cdf",
     "bestf1",
     "purity",
+    "knn_accuracy",
+    "nn_purity"
 ]
 NEUTRAL_KEYS = ["optim", "profiling", "mask_ratio", "freezers", "transform_scale", "ctx"]
 

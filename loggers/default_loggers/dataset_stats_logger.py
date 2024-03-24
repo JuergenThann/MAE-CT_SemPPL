@@ -68,7 +68,7 @@ class DatasetStatsLogger(SummaryLogger):
         if is_multiclass:
             counts = torch.stack(classes).sum(dim=0)
         else:
-            counts = get_class_counts(classes, n_classes)
+            counts = get_class_counts(list([x for x in classes if x >= 0]), n_classes)
             if isinstance(counts, tuple):
                 counts = counts[0]
         nonzero_counts = counts[counts > 0]

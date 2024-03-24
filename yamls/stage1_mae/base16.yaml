@@ -1,4 +1,4 @@
-stage_name: stage1
+stage_name: stage1_mae
 datasets:
   train:
     kind: image_net
@@ -32,8 +32,7 @@ model:
         - 0.9
         - 0.95
       schedule:
-        - end_checkpoint:
-            epoch: 20
+        - end_percent: 2.5
           exclude_first: true
           exclude_last: true
           kind: linear_increasing
@@ -53,8 +52,7 @@ model:
         - 0.9
         - 0.95
       schedule:
-        - end_checkpoint:
-            epoch: 20
+        - end_percent: 2.5
           exclude_first: true
           exclude_last: true
           kind: linear_increasing

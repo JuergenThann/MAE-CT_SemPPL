@@ -1,14 +1,17 @@
+import copy
 import einops
 import kappaprofiler as kp
 
 from models import model_from_kwargs
 from utils.factory import create
+from utils.model_utils import update_ema, copy_params
 from utils.vit_util import patchify_as_1d, unpatchify_from_1d, patchify_as_2d, unpatchify_from_2d
 from ..base.composite_model_base import CompositeModelBase
+from ..vit.mask_generators.predefined_mask_generator import PredefinedMaskGenerator
 
 
 class MaeVit(CompositeModelBase):
-    def __init__(self, encoder, decoder, **kwargs):
+    def __init__(self, encoder, decoder, target_factor=None, **kwargs):
         super().__init__(**kwargs)
         self.encoder = create(
             encoder,
@@ -17,6 +20,17 @@ class MaeVit(CompositeModelBase):
             update_counter=self.update_counter,
             stage_path_provider=self.stage_path_provider,
         )
+
+        if target_factor is None:
+            self.target_encoder = None
+            self.target_factor = None
+        else:
+            self.target_encoder = copy.deepcopy(self.encoder)
+            for param in self.target_encoder.parameters():
+                param.requires_grad = False
+            self.target_encoder.optim_ctor = None
+            self.target_factor = target_factor
+
         self.decoder = create(
             decoder,
             model_from_kwargs,
@@ -30,12 +44,23 @@ class MaeVit(CompositeModelBase):
         self.latent_shape = self.encoder.embedding_dim
         self.output_shape = self.decoder.output_shape if self.decoder is not None else None
 
+    def _model_specific_initialization(self):
+        if self.target_encoder is not None:
+            copy_params(self.encoder, self.target_encoder)
+
     @property
     def submodels(self):
-        return dict(encoder=self.encoder, decoder=self.decoder)
+        sub = dict(encoder=self.encoder, decoder=self.decoder)
+        if self.target_encoder is not None:
+            sub['target_encoder'] = self.target_encoder
+        return sub
 
-    def encode(self, x, mask_generator, single_mask=False):
-        return self.encoder(x, mask_generator=mask_generator, single_mask=single_mask)
+    def encode(self, x, mask_generator, single_mask=False, use_target=False):
+        return (self.target_encoder if use_target else self.encoder)(
+            x,
+            mask_generator=mask_generator,
+            single_mask=single_mask
+        )
 
     def decode(self, x, ids_restore):
         return self.decoder(x, ids_restore=ids_restore)
@@ -43,7 +68,12 @@ class MaeVit(CompositeModelBase):
     def forward(self, x, mask_generator, single_mask=False):
         with kp.named_profile_async("encode"):
             latent_tokens, mask, ids_restore = self.encode(x, mask_generator=mask_generator, single_mask=single_mask)
-        outputs = dict(latent_tokens=latent_tokens)
+            outputs = dict(latent_tokens=latent_tokens)
+            if self.target_encoder is not None:
+                target_mask_generator = PredefinedMaskGenerator(mask, mask_generator)
+                (target_latent_tokens, _, _) = self.encode(x, mask_generator=target_mask_generator,
+                                                           single_mask=single_mask, use_target=True)
+                outputs['target_latent_tokens'] = target_latent_tokens
         if self.decoder is not None:
             with kp.named_profile_async("decode"):
                 # for experiment that has encoder without mask and does the masking in the decoder to still have a task
@@ -88,3 +118,7 @@ class MaeVit(CompositeModelBase):
             img_shape=self.input_shape,
         )
         return imgs
+
+    def after_update_step(self):
+        if self.target_encoder is not None:
+            update_ema(self.encoder, self.target_encoder, self.target_factor)

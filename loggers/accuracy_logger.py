@@ -7,6 +7,8 @@ from torchmetrics.functional.classification import multiclass_accuracy
 from distributed.gather import all_gather_nograd_clipped
 from .base.dataset_logger import DatasetLogger
 
+from kappadata import LabelSmoothingWrapper
+
 
 class AccuracyLogger(DatasetLogger):
     def __init__(self, predict_kwargs=None, accuracies_per_class=False, **kwargs):
@@ -24,6 +26,8 @@ class AccuracyLogger(DatasetLogger):
 
     def _forward_accuracy(self, batch, model, trainer):
         x, cls = batch
+        if self.dataset.has_wrapper_type(LabelSmoothingWrapper):
+            cls = torch.argmax(cls, dim=-1)
         x = x.to(model.device, non_blocking=True)
         with trainer.autocast_context:
             predictions = model.predict(x, **self.predict_kwargs)

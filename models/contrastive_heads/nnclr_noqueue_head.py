@@ -17,7 +17,7 @@ class NnclrNoqueueHead(ContrastiveHeadBase):
         self.projector = self.create_projector(input_dim, self.proj_hidden_dim, output_dim)
         self.predictor = self.create_predictor(output_dim, self.pred_hidden_dim)
 
-    def _forward(self, pooled):
+    def _forward(self, pooled, target_pooled=None):
         projected = self.projector(pooled)
         predicted = self.predictor(projected)
         return dict(projected=projected, predicted=predicted)

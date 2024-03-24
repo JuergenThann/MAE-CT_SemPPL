@@ -1,0 +1,87 @@
+stage_name: stage3_maect_umap
+datasets:
+  train:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar10
+    num_classes: 10
+    torchvision_args:
+      kind: CIFAR10
+      train: true
+      download: false
+    x_transform:
+      - interpolation: bicubic
+        kind: kd_random_resized_crop
+        scale:
+          - 0.5
+          - 1.0
+        size: 32
+      - kind: random_horizontal_flip
+      - kind: kd_image_net_norm
+  test:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar10
+    num_classes: 10
+    torchvision_args:
+      kind: CIFAR10
+      train: false
+      download: false
+    dataset_wrappers:
+      - kind: classwise_subset_wrapper
+        end_index: 200
+    x_transform:
+      - kind: kd_image_net_norm
+model:
+  kind: backbone_head
+  backbone:
+    kind: vit.vit_mae
+    patch_size: 4
+    embedding_dim: 192
+    depth: 12
+    attention_heads: 3
+    is_frozen: true
+    initializer:
+      checkpoint: last
+      kind: previous_run_initializer
+      model_name: mae_contheads_vit.encoder
+      stage_id: ls34cs03
+      stage_name: stage3_maect
+  head:
+    kind: heads.multi_linear_head
+    initializers:
+      default:
+        kind: trunc_normal_initializer
+        std: 0.01
+    optimizers:
+      sgd_lr01_wupcos_wd0:
+        kind: sgd
+        lr: 0.1
+        momentum: 0.9
+        schedule:
+          - end_checkpoint:
+              epoch: 1
+            kind: linear
+          - kind: cosine_annealing
+    poolings:
+      cls:
+        # use CLS token
+        # kind: class_token
+        # use average pooling
+        kind: mean_patch
+
+trainer:
+  kind: classification_trainer
+  max_epochs: 1
+  effective_batch_size: 128
+  precision: bfloat16
+  log_every_n_epochs: 1
+  loggers:
+    - kind: feature_umap_logger
+      dataset_key: test
+      every_n_epochs: 1
+      n_components: 2
+      n_neighbors: 100
+      min_dist: 0.1
+      metric: 'euclidean'
+      extractors:
+        - kind: generic_extractor
+          model_property_path: head.layers["cls_sgd_lr01_wupcos_wd0_default"].pooling

@@ -1,4 +1,5 @@
 import kappaprofiler as kp
+import torch
 import torch.nn as nn
 from torch.nn.functional import normalize
 
@@ -24,19 +25,23 @@ class MaeContheadsVit(MaeVit):
 
     @property
     def submodels(self):
-        heads = {f"head.{key}": value for key, value in self.contrastive_heads.items()}
-        if self.decoder is not None:
-            heads["decoder"] = self.decoder
-        return dict(encoder=self.encoder, **heads)
+        sub = super().submodels
+        sub.update({f"head.{key}": value for key, value in self.contrastive_heads.items()})
+
+        if self.decoder is None:
+            del sub["decoder"]
+        return sub
 
     # noinspection PyMethodOverriding
     def forward(self, x, mask_generator, batch_size):
         outputs = super().forward(x, mask_generator=mask_generator)
         latent_tokens = outputs["latent_tokens"]
-        outputs.update(self.forward_heads(latent_tokens=latent_tokens, batch_size=batch_size))
+        target_latent_tokens = outputs.get("target_latent_tokens", None)
+        outputs.update(self.forward_heads(latent_tokens=latent_tokens, target_latent_tokens=target_latent_tokens,
+                                          batch_size=batch_size))
         return outputs
 
-    def forward_heads(self, latent_tokens, batch_size):
+    def forward_heads(self, latent_tokens, target_latent_tokens, batch_size):
         outputs = {}
         view_count = int(len(latent_tokens) / batch_size)
         for head_name, head in self.contrastive_heads.items():
@@ -46,13 +51,16 @@ class MaeContheadsVit(MaeVit):
                 for i in range(view_count):
                     start_idx = i * batch_size
                     end_idx = (i + 1) * batch_size
-                    head_outputs = head(latent_tokens[start_idx:end_idx])
+                    tokens = [latent_tokens[start_idx:end_idx]]
+                    if target_latent_tokens is not None:
+                        tokens.append(target_latent_tokens[start_idx:end_idx])
+                    head_outputs = head(*tokens)
                     outputs[head_name][f"view{i}"] = head_outputs
         return outputs
 
     def get_nn_classes(self, x, batch_size, features_kwargs):
         latent_tokens = self.features(x, **features_kwargs)
-        head_outputs = self.forward_heads(latent_tokens=latent_tokens, batch_size=batch_size)
+        head_outputs = self.forward_heads(latent_tokens=latent_tokens, target_latent_tokens=None, batch_size=batch_size)
         outputs = {}
         for head_name, head in self.contrastive_heads.items():
             projected = head_outputs[head_name]["view0"]["projected"]

@@ -2,7 +2,7 @@ stage_name: stage2
 datasets:
   train:
     kind: image_net
-    version: imagenet1k
+    version: imagenet10
     split: train
     sample_wrappers:
       - kind: multi_view_wrapper
@@ -64,8 +64,8 @@ model:
       checkpoint: last
       kind: previous_run_initializer
       model_name: mae_contheads_vit.encoder
-      stage_id: ???
-      stage_name: stage1
+      stage_id: irpwo1d7
+      stage_name: stage1_mae
   contrastive_heads:
     nnclr:
       kind: contrastive_heads.nnclr_head

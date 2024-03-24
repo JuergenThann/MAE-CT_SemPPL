@@ -7,6 +7,7 @@ from losses.bce_loss import bce_loss
 from utils.factory import create
 from utils.object_from_kwargs import objects_from_kwargs
 from .base.sgd_trainer import SgdTrainer
+from functools import  partial
 
 
 class ClassificationTrainer(SgdTrainer):
@@ -20,7 +21,7 @@ class ClassificationTrainer(SgdTrainer):
         if self._loss_function is None:
             ds = self.data_container.get_dataset("train")
             if ds.has_wrapper_type(LabelSmoothingWrapper):
-                raise NotImplementedError
+                self._loss_function = partial(cross_entropy, label_smoothing=ds.smoothing)
             elif ds.n_classes > 1 and not ds.is_multiclass:
                 self._loss_function = cross_entropy
             else:

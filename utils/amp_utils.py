@@ -32,7 +32,7 @@ def get_supported_precision(desired_precision, device):
         else:
             # currently cpu only supports bfloat16
             if is_bfloat16_compatible(device):
-                logging.info(f"float16 not supported -> using bfloat16")
+                logging.info(f"float16 not supportedno FlashAttention available -> using bfloat16")
                 return torch.bfloat16
 
     logging.info(f"float16/bfloat16 not supported -> using float32")

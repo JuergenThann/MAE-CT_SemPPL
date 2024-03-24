@@ -119,9 +119,9 @@ class TrainerBase(TrainerInterface):
         elif train_dataset.has_wrapper_type(MultiCropWrapper):
             n_views = sum(train_dataset.views_per_transform)
             assert n_views >= 2
-            if n_views > 2:
-                self.logger.warning("using multi crop -> not sure what lr scaling to apply with local crops using *2")
-            view_adjusted_effective_batch_size = self.effective_batch_size * 2
+            # if n_views > 2:
+            #     self.logger.warning("using multi crop -> not sure what lr scaling to apply with local crops using *2")
+            view_adjusted_effective_batch_size = self.effective_batch_size * n_views
             self.logger.info(
                 f"using effective_batch_size {view_adjusted_effective_batch_size} instead of "
                 f"{self.effective_batch_size} for initializing model "

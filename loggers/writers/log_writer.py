@@ -57,7 +57,12 @@ class LogWriter:
         if len(self.log_entries) > 0:
             assert self.log_cache["update"] > self.log_entries[-1]["update"]
         # don't keep histograms for primitive logging
-        self.log_entries.append({k: v for k, v in self.log_cache.items() if not isinstance(v, wandb.Histogram)})
+        self.log_entries.append({
+            k: v
+            for k, v
+            in self.log_cache.items()
+            if not isinstance(v, (wandb.Histogram, wandb.viz.CustomChart, wandb.Image))
+        })
         self.log_cache = None
 
     def add_scalar(self, key, value, update_counter):
@@ -68,3 +73,13 @@ class LogWriter:
     def add_histogram(self, key, data, update_counter):
         if self.is_wandb:
             self._log(key, wandb.Histogram(data), update_counter)
+
+    def add_image(self, key, data, update_counter, **_):
+        if self.is_wandb:
+            self._log(key, wandb.Image(**data), update_counter)
+
+    def add_scatterplot(self, key, column_headers, data, update_counter, title=None, x_colidx=0, y_colidx=1):
+        if self.is_wandb:
+            table = wandb.Table(columns=column_headers, data=data)
+            plot = wandb.plot.scatter(table, column_headers[x_colidx], column_headers[y_colidx], title)
+            self._log(key, plot, update_counter)
