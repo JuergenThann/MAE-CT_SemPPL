@@ -91,7 +91,7 @@ def knn_metrics(
             accuracies[knn] += (test_y_chunk == knn_classes).sum()
 
             # calculate purity
-            nn_labels = einops.rearrange(flat_nn_labels, "(knn n_test) -> knn n_test", knn=knn)
+            nn_labels = einops.rearrange(flat_nn_labels, "(n_test knn) -> knn n_test", knn=knn)
             purities[knn] += (test_y_chunk_purity == nn_labels).sum()
 
             # calculate score for binary classification
