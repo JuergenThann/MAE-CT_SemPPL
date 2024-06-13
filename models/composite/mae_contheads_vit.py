@@ -1,11 +1,10 @@
 import kappaprofiler as kp
-import torch
 import torch.nn as nn
-from torch.nn.functional import normalize
 
 from models import model_from_kwargs
 from utils.factory import create_collection
 from .mae_vit import MaeVit
+from models.vit.mask_generators.random_mask_generator import RandomMaskGenerator
 
 
 class MaeContheadsVit(MaeVit):
@@ -48,25 +47,25 @@ class MaeContheadsVit(MaeVit):
             outputs[head_name] = {}
             # seperate forward pass because of e.g. BatchNorm
             with kp.named_profile_async(head_name):
-                for i in range(view_count):
-                    start_idx = i * batch_size
-                    end_idx = (i + 1) * batch_size
-                    tokens = [latent_tokens[start_idx:end_idx]]
-                    if target_latent_tokens is not None:
-                        tokens.append(target_latent_tokens[start_idx:end_idx])
-                    head_outputs = head(*tokens)
-                    outputs[head_name][f"view{i}"] = head_outputs
+                for view in range(view_count):
+                    start_idx = view * batch_size
+                    end_idx = (view + 1) * batch_size
+                    head_outputs = head(
+                        x=latent_tokens[start_idx:end_idx],
+                        target_x=None if target_latent_tokens is None else target_latent_tokens[start_idx:end_idx],
+                        view=view
+                    )
+                    outputs[head_name][f"view{view}"] = head_outputs
         return outputs
 
-    def get_nn_classes(self, x, batch_size, features_kwargs):
-        latent_tokens = self.features(x, **features_kwargs)
-        head_outputs = self.forward_heads(latent_tokens=latent_tokens, target_latent_tokens=None, batch_size=batch_size)
-        outputs = {}
-        for head_name, head in self.contrastive_heads.items():
-            projected = head_outputs[head_name]["view0"]["projected"]
-            normed_projected = normalize(projected, dim=1)
-            similarity_matrix = normed_projected @ head.queue.T
-            nn_idx = similarity_matrix.max(dim=1)[1]
-            nn_class = head.queue_y[nn_idx]
-            outputs[head_name] = nn_class
-        return outputs
+    def predict(self, x):
+        outputs = self(x, mask_generator=RandomMaskGenerator(mask_ratio=0.0), batch_size=x.shape[0])
+        flat_outputs = dict({
+            k1: v3
+            for k1, v1 in outputs.items()
+            if k1 in self.contrastive_heads.keys() and "view0" in v1
+            for _, v2 in v1.items()
+            if len(v2) == 1
+            for _, v3 in v2.items()
+        })
+        return flat_outputs

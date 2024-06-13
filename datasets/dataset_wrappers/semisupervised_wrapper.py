@@ -1,14 +1,14 @@
 from kappadata import KDWrapper
 import torch
 from torch.utils.data.dataset import Subset
-from operator import itemgetter
 
 
-class SemiSupervisedWrapper(KDWrapper):
-    def __init__(self, labeled_percentage, **kwargs):
+class SemisupervisedWrapper(KDWrapper):
+    def __init__(self, labeled_percentage: int, **kwargs):
         super().__init__(**kwargs)
         assert(0 <= labeled_percentage <= 100)
-        self.targets = torch.Tensor(self.dataset.targets)
+
+        self.targets = torch.tensor(self.dataset.targets, dtype=torch.long)
         if isinstance(self.dataset, Subset):
             self.targets = self.targets[self.dataset.indices]
         classes, class_counts = torch.unique(self.targets, return_counts=True)

@@ -93,16 +93,15 @@ class ContrastiveHeadBase(SingleModelBase):
     def register_components(self, input_dim, output_dim, **kwargs):
         raise NotImplementedError
 
-    def forward(self, x, target_x=None):
-
+    def forward(self, x, target_x=None, view=None):
         if self.detach:
             x = x.detach()
             target_x = None if target_x is None else target_x.detach()
         pooled = self.pooling(x).flatten(start_dim=1)
         target_pooled = None if target_x is None else self.pooling(target_x).flatten(start_dim=1)
-        return self._forward(pooled, target_pooled)
+        return self._forward(pooled, target_pooled, view)
 
-    def _forward(self, pooled, target_pooled=None):
+    def _forward(self, x, target_x=None, view=None):
         raise NotImplementedError
 
     def get_loss(self, outputs, idx, y):

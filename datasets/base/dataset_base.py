@@ -6,10 +6,11 @@ from utils.factory import create_collection
 
 
 class DatasetBase(KDDataset):
-    def __init__(self, collators=None, dataset_config_provider: DatasetConfigProvider = None, **kwargs):
+    def __init__(self, collators=None, dataset_config_provider: DatasetConfigProvider = None, dataloader=None, **kwargs):
         super().__init__(**kwargs)
         self.dataset_config_provider = dataset_config_provider
         self.collators = create_collection(collators, collator_from_kwargs)
+        self.dataloader = dataloader
 
     def __len__(self):
         raise NotImplementedError

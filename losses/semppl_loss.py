@@ -21,6 +21,9 @@ def semppl_loss_fn(normed_predicted, normed_nn, temperature, transposed=False, n
         logits = normed_nn @ normed_predicted.T / temperature
         n = normed_nn.size(0)
 
+    def get_off_diagonal_elements(m):
+        return m[~torch.eye(*m.shape, dtype=torch.bool)].view(m.shape[0], m.shape[1] - 1)
+
     def _sample_negatives(tensor):
         shapes = all_gather_nograd(torch.tensor(tensor.shape, device=tensor.device)[None, :])
         if tensor.shape[0] == 0 or tensor.shape[1] < 2:
@@ -31,12 +34,19 @@ def semppl_loss_fn(normed_predicted, normed_nn, temperature, transposed=False, n
         result[:, 0] = tensor.diagonal()
 
         n_0, n_1 = tensor.shape
-        diagonal_indices = list(range(shapes[:rank, 0].sum(), n_0*n_1, n_1+1))
-        off_diagonal_indices = torch.tensor([i for i in range(0, n_0*n_1) if i not in diagonal_indices])
-        off_diagonal = tensor.flatten()[off_diagonal_indices].reshape(n_0, n_1 - 1)
+        tensor2 = torch.zeros((n_1, n_1), dtype=tensor.dtype, device=tensor.device)
+        tensor_start = shapes[:rank, 0].sum()
+        tensor_end = tensor_start+n_0
+        tensor2[tensor_start:tensor_end, :] = tensor
+        off_diagonal = get_off_diagonal_elements(tensor2)
+
+        # diagonal_indices = list(range(shapes[:rank, 0].sum(), n_0*n_1, n_1+1))
+        # off_diagonal_indices = torch.tensor([i for i in range(0, n_0*n_1) if i not in diagonal_indices])
+        # off_diagonal = tensor.flatten()[off_diagonal_indices].reshape(n_0, n_1 - 1)
         indices = torch.argsort(torch.rand_like(off_diagonal), dim=1)[:, :num_negatives]
         result[:, 1:] = torch.gather(off_diagonal, dim=1, index=indices)
-        return result
+        # return result
+        return result[tensor_start:tensor_end, :]
 
     if num_negatives is not None:
         logits = _sample_negatives(logits)

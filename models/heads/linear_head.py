@@ -26,22 +26,12 @@ class LinearHead(SingleModelBase):
         self.std = None
 
     def load_state_dict(self, state_dict, strict=True):
-        # previously the pooling was within the sequential so indices are messed up
-        if "layer.3.weight" in state_dict:
-            # "layer.1.running_mean", "layer.1.running_var", "layer.2.weight", "layer.2.bias"
-            state_dict["layer.1.running_mean"] = state_dict["layer.2.running_mean"]
-            state_dict["layer.1.running_var"] = state_dict["layer.2.running_var"]
-            state_dict["layer.1.num_batches_tracked"] = state_dict["layer.2.num_batches_tracked"]
-            state_dict["layer.2.weight"] = state_dict["layer.3.weight"]
-            state_dict["layer.2.bias"] = state_dict["layer.3.bias"]
-            del state_dict["layer.2.running_mean"]
-            del state_dict["layer.2.running_var"]
-            del state_dict["layer.2.num_batches_tracked"]
-            del state_dict["layer.3.weight"]
-            del state_dict["layer.3.bias"]
         super().load_state_dict(state_dict=state_dict, strict=strict)
 
-    def forward(self, x):
+    def register_components(self, input_dim, output_dim, **kwargs):
+        raise NotImplementedError
+
+    def forward(self, x, target_x=None, view=None):
         x = self.pooling(x, ctx=self.ctx)
         if self.mean is not None and self.std is not None:
             assert isinstance(self.norm, nn.Identity)
@@ -56,3 +46,6 @@ class LinearHead(SingleModelBase):
 
     def predict_binary(self, x):
         return self.predict(x)
+
+    def get_loss(self, outputs, idx, y):
+        raise NotImplementedError

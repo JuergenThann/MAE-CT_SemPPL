@@ -19,17 +19,30 @@ def get_output_shape_of_model(model, forward_fn, **forward_kwargs):
 
 @torch.no_grad()
 def copy_params(source_model, target_model):
-    for target_param, source_param in zip(target_model.parameters(), source_model.parameters()):
-        target_param.data = source_param.data
+    source_parameters = dict({n: v for n, v in source_model.named_parameters()})
+    target_parameters = dict({n: v for n, v in target_model.named_parameters()})
+    for source_param_name, source_param in source_parameters.items():
+        if source_param_name in target_parameters:
+            target_param = target_parameters[source_param_name]
+            target_param.data = source_param.data
 
 
 @torch.no_grad()
 def update_ema(source_model, target_model, target_factor):
     # TODO i think inplace operations are okay here
-    for target_param, source_param in zip(target_model.parameters(), source_model.parameters()):
-        target_param.data = target_param.data * target_factor + source_param.data * (1. - target_factor)
-    for target_buffer, source_buffer in zip(target_model.buffers(), source_model.buffers()):
-        target_buffer.data.copy_(source_buffer.data)
+    source_parameters = dict({n: v for n, v in source_model.named_parameters()})
+    target_parameters = dict({n: v for n, v in target_model.named_parameters()})
+    for source_param_name, source_param in source_parameters.items():
+        if source_param_name in target_parameters:
+            target_param = target_parameters[source_param_name]
+            target_param.data = target_param.data * target_factor + source_param.data * (1. - target_factor)
+
+    source_buffers = dict({n: v for n, v in source_model.named_buffers()})
+    target_buffers = dict({n: v for n, v in target_model.named_buffers()})
+    for source_buffer_name, source_buffer in source_buffers.items():
+        if source_buffer_name in target_buffers:
+            target_buffer = target_buffers[source_buffer_name]
+            target_buffer.data.copy_(source_buffer.data)
 
 
 def get_named_models(model):

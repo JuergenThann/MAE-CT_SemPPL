@@ -11,7 +11,7 @@ from kappadata import LabelSmoothingWrapper
 
 
 class AccuracyLogger(DatasetLogger):
-    def __init__(self, predict_kwargs=None, accuracies_per_class=False, **kwargs):
+    def __init__(self, predict_kwargs=None, accuracies_per_class=False, use_target=False, **kwargs):
         super().__init__(**kwargs)
         self.predict_kwargs = predict_kwargs or {}
         self.accuracies_per_class = accuracies_per_class

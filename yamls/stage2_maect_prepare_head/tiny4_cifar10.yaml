@@ -20,7 +20,7 @@ datasets:
                   - 1.0
                 size: 32
               - kind: kd_random_horizontal_flip
-              - kind: kd_image_net_norm
+              - kind: kd_cifar10_norm
 model:
   kind: mae_contheads_vit
   encoder:

@@ -27,7 +27,7 @@ datasets:
             magnitude_std: 0.5
             interpolation: bicubic
             fill_color: [ 124, 116, 104 ]
-          - kind: kd_image_net_norm
+          - kind: kd_cifar10_norm
           - kind: kd_random_erasing
             p: 0.25
             mode: pixelwise
@@ -43,7 +43,7 @@ datasets:
       train: true
       download: false
     x_transform:
-      - kind: kd_image_net_norm
+      - kind: kd_cifar10_norm
   test:
     kind: torchvision_dataset_wrapper
     dataset_identifier: cifar10
@@ -53,7 +53,7 @@ datasets:
       train: false
       download: false
     x_transform:
-      - kind: kd_image_net_norm
+      - kind: kd_cifar10_norm
   test_small:
     kind: torchvision_dataset_wrapper
     dataset_identifier: cifar10
@@ -66,7 +66,7 @@ datasets:
       - kind: classwise_subset_wrapper
         end_index: 200
     x_transform:
-      - kind: kd_image_net_norm
+      - kind: kd_cifar10_norm
 model:
   kind: backbone_head
   backbone:

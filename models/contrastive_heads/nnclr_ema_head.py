@@ -25,9 +25,9 @@ class NnclrEmaHead(NnclrNoqueueHead):
         for param in self.target_projector.parameters():
             param.requires_grad = False
 
-    def _forward(self, pooled, target_pooled=None):
-        target_projected = self.target_projector(pooled if target_pooled is None else target_pooled)
-        projected = self.projector(pooled)
+    def _forward(self, x, target_x=None, view=None):
+        target_projected = self.target_projector(x if target_x is None else target_x)
+        projected = self.projector(x)
         predicted = self.predictor(projected)
         return dict(projected=target_projected, predicted=predicted)
 

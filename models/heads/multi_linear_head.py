@@ -73,7 +73,7 @@ class MultiLinearHead(CompositeModelBase):
     def submodels(self):
         return self.layers
 
-    def forward(self, x):
+    def forward(self, x, target_x=None, view=None):
         return {key: layer(x) for key, layer in self.layers.items()}
 
     def features(self, x):

@@ -137,7 +137,8 @@ class MaeContheadsVitTrainer(MaeVitTrainer):
             mae_losses_, mae_outputs_ = super().get_loss(shape_outputs, model)
             mae_outputs_["latent_tokens"] = shape_outputs["latent_tokens"]
 
-            loss_outputs.update({f"{k}/transform{i}": v for k, v in mae_outputs_.items()})
+            transform_postfix = f"/transform{i}" if len(outputs_) > 1 else ""
+            loss_outputs.update({f"{k}{transform_postfix}": v for k, v in mae_outputs_.items()})
             mae_total_loss = mae_losses_.pop("total")
             for loss_name, loss in mae_losses_.items():
                 if loss_name in losses:
@@ -158,7 +159,7 @@ class MaeContheadsVitTrainer(MaeVitTrainer):
                         losses[loss_key] = head_loss
 
                 for output_name, head_output in head_outputs.items():
-                    loss_outputs[f"{head_name}/{output_name}/transform{i}"] = head_output
+                    loss_outputs[f"{head_name}/{output_name}{transform_postfix}"] = head_output
 
             total_loss += mae_total_loss + sum(all_total_losses)
         return dict(total=total_loss, **losses), loss_outputs

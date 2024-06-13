@@ -8,6 +8,8 @@ from pytorch_concurrent_dataloader import DataLoader as ConcurrentDataloader
 from torch.utils.data import DistributedSampler, DataLoader, RandomSampler, SequentialSampler
 
 from datasets.dummy_dataset import DummyDataset
+from datasets.dataset_wrappers.semisupervised_oversampling_wrapper import SemisupervisedOversamplingWrapper
+from samplers.semisupervised_oversampling_sampler import SemisupervisedOversamplingSampler
 from distributed.config import is_distributed, get_world_size
 from providers.config_providers.noop_config_provider import NoopConfigProvider
 from utils.infinite_batch_sampler import InfiniteBatchSampler
@@ -165,7 +167,10 @@ class DataContainer:
                 assert batch_size % get_world_size() == 0
 
         # distributed sampler if necessary
-        if is_distributed():
+        if SemisupervisedOversamplingWrapper in dataset.all_wrapper_types:
+            sampler = SemisupervisedOversamplingSampler(dataset, batch_size=batch_size, shuffle=shuffle)
+            shuffle = False
+        elif is_distributed():
             sampler = DistributedSampler(dataset, shuffle=shuffle)
             shuffle = False
         else:
