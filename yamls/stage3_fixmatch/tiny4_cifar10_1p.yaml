@@ -1,4 +1,4 @@
-stage_name: stage2_fixmatch
+stage_name: stage3_fixmatch
 datasets:
   train:
     kind: torchvision_dataset_wrapper
@@ -73,17 +73,16 @@ model:
       checkpoint: last
       kind: previous_run_initializer
       model_name: mae_contheads_vit.encoder
-      stage_id: x8loap89
-      stage_name: stage1_mae
+      stage_id: ahygse2t
+      stage_name: stage2_semppl
   contrastive_heads:
     fixmatch:
       kind: heads.fixmatch_head
       target_factor: 0.99
       nonaffine_batchnorm: true
       output_shape: 10
-      threshold: 0.0
+      threshold: 0.95
       unsupervised_loss_weight: 1
-      teacher_pseudo_labeling: true
       pooling:
         kind: class_token
         # kind: mean_patch

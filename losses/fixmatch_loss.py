@@ -4,36 +4,38 @@ import torch.nn.functional as F
 from distributed.gather import all_gather_grad, all_gather_nograd
 
 
-def fixmatch_loss_fn(logits_strong, logits_weak, labels, threshold: float, unsupervised_loss_weight: float):
+def fixmatch_loss_fn(strong_logits, weak_logits, pseudo_label_logits, labels, threshold: float,
+                     unsupervised_loss_weight: float):
     assert 0 <= threshold <= 1
 
     labeled_mask = labels >= 0
 
-    logits_weak = all_gather_grad(logits_weak)
+    weak_logits = all_gather_grad(weak_logits)
     labels = all_gather_nograd(labels)
 
     # supervised loss
-    logits_weak_labeled = logits_weak[labeled_mask, :]
+    weak_labeled_logits = weak_logits[labeled_mask, :]
     known_labels = labels[labeled_mask]
-    supervised_loss = F.cross_entropy(logits_weak_labeled, known_labels, reduction='mean')
+    supervised_loss = F.cross_entropy(weak_labeled_logits, known_labels, reduction='mean')
 
     # for logging
-    probs_weak_labeled = F.softmax(logits_weak_labeled.detach(), dim=1)
-    probs_labeled_max, _ = torch.max(probs_weak_labeled, dim=1)
+    weak_labeled_probs = F.softmax(weak_labeled_logits.detach(), dim=1)
+    weak_labeled_probs_max, _ = torch.max(weak_labeled_probs, dim=1)
 
     # unsupervised loss
-    if logits_strong is not None:
-        logits_strong = all_gather_grad(logits_strong)
-        logits_strong_unlabeled = logits_strong[~labeled_mask]
+    if strong_logits is not None:
+        pseudo_label_logits = all_gather_nograd(pseudo_label_logits)
+        strong_logits = all_gather_grad(strong_logits)
+        strong_unlabeled_logits = strong_logits[~labeled_mask]
 
-        logits_weak_unlabeled = logits_weak[~labeled_mask, :].detach()
-        probs_weak_unlabeled = F.softmax(logits_weak_unlabeled, dim=1)
-        probs_unlabeled_max, pseudo_labels = torch.max(probs_weak_unlabeled, dim=1)
-        threshold_mask = probs_unlabeled_max >= threshold
+        pseudo_label_logits = pseudo_label_logits[~labeled_mask, :].detach()
+        pseudo_label_probs = F.softmax(pseudo_label_logits, dim=1)
+        pseudo_label_max_probs, pseudo_labels = torch.max(pseudo_label_probs, dim=1)
+        threshold_mask = pseudo_label_max_probs >= threshold
 
         unsupervised_loss_unreduced = (
             F.cross_entropy(
-                logits_strong_unlabeled,
+                strong_unlabeled_logits,
                 pseudo_labels,
                 reduction='none'
             ) * threshold_mask
@@ -48,14 +50,14 @@ def fixmatch_loss_fn(logits_strong, logits_weak, labels, threshold: float, unsup
             supervised_loss=supervised_loss.item(),
             unsupervised_loss=unsupervised_loss.item(),
             unsupervised_loss_mean_over_threshold=torch.nan if samples_over_threshold == 0 else unsupervised_loss_unreduced.sum().item() / samples_over_threshold,
-            classification_confidence_unlabeled=probs_unlabeled_max.mean().item(),
-            classification_confidence_unlabeled_over_threshold=probs_unlabeled_max[threshold_mask].mean().item(),
-            classification_confidence_labeled=probs_labeled_max.mean().item(),
+            classification_confidence_unlabeled=pseudo_label_max_probs.mean().item(),
+            classification_confidence_unlabeled_over_threshold=pseudo_label_max_probs[threshold_mask].mean().item(),
+            classification_confidence_labeled=weak_labeled_probs_max.mean().item(),
             pseudo_label_accuracy=(pseudo_labels[threshold_mask] == (-labels[~labeled_mask][threshold_mask]-1)).to(torch.float).mean().item()
         )
     else:
         # final loss and log output
         return supervised_loss, dict(
             supervised_loss=supervised_loss.item(),
-            classification_confidence_labeled=probs_labeled_max.mean().item()
+            classification_confidence_labeled=weak_labeled_probs_max.mean().item()
         )

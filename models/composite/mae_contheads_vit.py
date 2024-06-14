@@ -68,4 +68,6 @@ class MaeContheadsVit(MaeVit):
             if len(v2) == 1
             for _, v3 in v2.items()
         })
+        if len(flat_outputs) == 0:
+            raise ValueError("Forward of model is expected to have only one output for prediction.")
         return flat_outputs

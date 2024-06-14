@@ -18,7 +18,7 @@ class EmaLinearHead(LinearHead):
 
     def load_state_dict(self, state_dict, strict=True):
         # patch for stage2
-        if "target_head" not in state_dict:
+        if len([k for k in state_dict.keys() if k.startswith("target_head.")]) == 0:
             for key in list(state_dict.keys()):
                 state_dict[f"target_head.{key}"] = state_dict[key]
         super().load_state_dict(state_dict=state_dict, strict=strict)
