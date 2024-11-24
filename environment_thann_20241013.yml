@@ -174,7 +174,7 @@ dependencies:
   - pluggy
   - ply
   - pooch
-  - protobuf
+  - protobuf=3.20
   - psutil
   - pthread-stubs
   - pulseaudio
@@ -188,12 +188,12 @@ dependencies:
   - pyqt5-sip
   - pysocks
   - pytest
-  - python
+  - python=3.11.6
   - python-dateutil
   - python-tzdata
   - python_abi
-  - pytorch
-  - pytorch-cuda
+  - pytorch=2.0.1
+  - pytorch-cuda=11.7
   - pytorch-mutex
   - pytz
   - pyyaml
@@ -218,7 +218,7 @@ dependencies:
   - tomli
   - torchmetrics
   - torchtriton
-  - torchvision
+  - torchvision=0.15.2
   - tornado
   - tqdm
   - typing-extensions
@@ -227,7 +227,7 @@ dependencies:
   - umap-learn
   - unicodedata2
   - urllib3
-  - wandb
+  - wandb=0.15.3=pyhd8ed1ab_0
   - wheel
   - xcb-util
   - xcb-util-image

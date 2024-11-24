@@ -20,10 +20,6 @@ def fixmatch_loss_fn(unlabeled_logits, labeled_logits, pseudo_label_logits, conf
     # supervised loss
     labeled_logits = labeled_logits[labeled_mask, :]
     known_labels = labels[labeled_mask]
-    labeled_logits_max = labeled_logits.max().cpu()
-    labeled_logits_min = labeled_logits.min().cpu()
-    known_labels_max = known_labels.max().cpu()
-    known_labels_min = known_labels.min().cpu()
     supervised_loss = F.cross_entropy(labeled_logits, known_labels, reduction='mean')
 
     # for logging
