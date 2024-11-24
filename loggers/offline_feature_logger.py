@@ -1,7 +1,7 @@
 from functools import partial
 
 import torch
-from kappadata import ModeWrapper
+from kappadata.wrappers import ModeWrapper
 
 from distributed.config import is_rank0
 from models.extractors import extractor_from_kwargs

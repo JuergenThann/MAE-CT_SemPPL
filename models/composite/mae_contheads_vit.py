@@ -26,9 +26,6 @@ class MaeContheadsVit(MaeVit):
     def submodels(self):
         sub = super().submodels
         sub.update({f"head.{key}": value for key, value in self.contrastive_heads.items()})
-
-        if self.decoder is None:
-            del sub["decoder"]
         return sub
 
     # noinspection PyMethodOverriding

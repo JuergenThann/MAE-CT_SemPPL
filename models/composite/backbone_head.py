@@ -33,7 +33,7 @@ class BackboneHead(CompositeModelBase):
 
     def forward(self, x, backbone_forward_kwargs=None):
         features = self.backbone.features(x, **(backbone_forward_kwargs or {}))
-        result = self.head(features)
+        result = self.head.features(features)
         self.ctx.clear()
         return result
 

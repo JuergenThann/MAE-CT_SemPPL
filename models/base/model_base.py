@@ -16,6 +16,8 @@ class ModelBase(torch.nn.Module):
             update_counter=None,
             stage_path_provider: StagePathProvider = None,
             ctx: dict = None,
+            data_container=None,
+            **kwargs
     ):
         super().__init__()
         self.logger = logging.getLogger(type(self).__name__)

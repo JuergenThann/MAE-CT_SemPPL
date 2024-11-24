@@ -22,6 +22,7 @@ def model_from_kwargs(kind=None, stage_path_provider=None, **kwargs):
     # exclude update_counter from copying (otherwise model and trainer have different update_counter objects)
     update_counter = kwargs.pop("update_counter", None)
     ctx = kwargs.pop("ctx", None)
+    data_container = kwargs.pop('data_container', None)
     kwargs = deepcopy(kwargs)
 
     # allow setting multiple kwargs in yaml; but allow also overwriting it
@@ -83,6 +84,7 @@ def model_from_kwargs(kind=None, stage_path_provider=None, **kwargs):
         stage_path_provider=stage_path_provider,
         ctx=ctx,
         ctor_kwargs=ctor_kwargs,
+        data_container=data_container,
         **kwargs,
     )
 

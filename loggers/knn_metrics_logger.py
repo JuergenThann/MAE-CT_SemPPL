@@ -1,6 +1,6 @@
 from functools import partial
 
-from kappadata import ModeWrapper
+from kappadata.wrappers import ModeWrapper
 from torcheval.metrics.functional import binary_auprc
 from torchmetrics.functional.classification import binary_auroc
 

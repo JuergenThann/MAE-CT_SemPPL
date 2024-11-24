@@ -4,7 +4,7 @@ from functools import partial
 import einops
 import numpy as np
 import torch
-from kappadata import ModeWrapper
+from kappadata.wrappers.mode_wrapper import ModeWrapper
 from kappadata import get_norm_transform
 
 from distributed.gather import all_reduce_mean_grad

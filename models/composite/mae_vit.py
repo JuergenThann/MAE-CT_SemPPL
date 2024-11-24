@@ -11,7 +11,7 @@ from ..vit.mask_generators.predefined_mask_generator import PredefinedMaskGenera
 
 
 class MaeVit(CompositeModelBase):
-    def __init__(self, encoder, decoder, target_factor=None, **kwargs):
+    def __init__(self, encoder, decoder=None, target_factor=None, **kwargs):
         super().__init__(**kwargs)
         self.encoder = create(
             encoder,
@@ -50,7 +50,9 @@ class MaeVit(CompositeModelBase):
 
     @property
     def submodels(self):
-        sub = dict(encoder=self.encoder, decoder=self.decoder)
+        sub = dict(encoder=self.encoder)
+        if self.decoder is not None:
+            sub['decoder'] = self.decoder
         if self.target_encoder is not None:
             sub['target_encoder'] = self.target_encoder
         return sub
@@ -87,9 +89,9 @@ class MaeVit(CompositeModelBase):
 
     def features(self, x, mask_generator=None):
         if mask_generator is None:
-            return self.encode(x, mask_generator=mask_generator)
+            return self.encode(x, mask_generator=mask_generator, use_target=not self.training)
         # mask and ids_restore are not needed
-        return self.encode(x, mask_generator=mask_generator)[0]
+        return self.encode(x, mask_generator=mask_generator, use_target=not self.training)[0]
 
     def mask_x(self, x, mask_generator, single_mask=False):
         patches = patchify_as_2d(x, self.encoder.patch_size)

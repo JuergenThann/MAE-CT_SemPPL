@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from kappadata import SharedDictDataset
+from kappadata.caching import SharedDictDataset
 from kappadata.copying.image_folder import copy_imagefolder_from_global_to_local
 from kappadata.loading.image_folder import raw_image_folder_sample_to_pil_sample, raw_image_loader
 

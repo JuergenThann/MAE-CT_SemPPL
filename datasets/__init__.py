@@ -10,6 +10,7 @@ def dataset_from_kwargs(
         dataset_config_provider,
         dataset_wrappers=None,
         sample_wrappers=None,
+        batch_wrappers=None,
         **kwargs,
 ):
     dataset = instantiate(
@@ -44,6 +45,23 @@ def dataset_from_kwargs(
                 dataset=dataset,
                 **sample_wrapper_kwargs,
             )
+
+    if batch_wrappers is not None:
+        assert isinstance(batch_wrappers, list)
+        instantiated_batch_wrappers = []
+        for batch_wrapper_kwargs in batch_wrappers:
+            batch_wrapper_kind = batch_wrapper_kwargs.pop("kind")
+            instantiated_batch_wrappers.append(instantiate(
+                module_names=[
+                    f"datasets.batch_wrappers.{batch_wrapper_kind}"
+                ],
+                type_names=[batch_wrapper_kind],
+                **batch_wrapper_kwargs,
+            ))
+    else:
+        instantiated_batch_wrappers = None
+    dataset.batch_wrappers = instantiated_batch_wrappers
+
     return dataset
 
 

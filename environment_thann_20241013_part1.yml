@@ -1,0 +1,12 @@
+name: thann_maect
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11.6
+  - pytorch=2.0.1
+  - pytorch-cuda=11.7
+  - torchvision=0.15.2
+prefix: /system/apps/studentenv/thann/thann_maect

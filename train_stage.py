@@ -29,6 +29,7 @@ from utils.seed import set_seed
 from utils.system_info import log_system_info, get_cli_command
 from utils.version_check import check_versions
 from utils.wandb_utils import init_wandb, finish_wandb
+from datasets.batch_wrappers.prob_pseudo_mix_batch_wrapper import ProbPseudoMixBatchWrapper
 
 
 def train_stage(
@@ -174,9 +175,20 @@ def train_stage(
         output_shape=trainer.output_shape,
         update_counter=trainer.update_counter,
         stage_path_provider=stage_path_provider,
+        data_container=data_container,
     )
     # moved to trainer as initialization on cuda is different than on cpu
     # model = model.to(stage_config.run_config.device)
+
+    model = model.to(device)
+
+    # Probabilistic Pseudo MixUp requires the model to get confidence scores of samples
+    if data_container is not None:
+        for dataset in data_container.datasets.values():
+            if dataset.batch_wrappers is not None:
+                for batch_wrapper in dataset.batch_wrappers:
+                    if isinstance(batch_wrapper, ProbPseudoMixBatchWrapper) and batch_wrapper.model_name == model.name:
+                        batch_wrapper.model = model
 
     # train model
     trainer.train(model)

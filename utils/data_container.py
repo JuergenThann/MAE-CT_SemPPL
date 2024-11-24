@@ -1,9 +1,10 @@
 import logging
 from functools import partial
 
-import kappadata as kd
 import numpy as np
-from kappadata import ModeWrapper, KDComposeCollator, SubsetWrapper, ShuffleWrapper
+from kappadata.collators import KDComposeCollator
+from kappadata.transforms import KDScheduledTransform
+from kappadata.wrappers import ModeWrapper, SubsetWrapper, ShuffleWrapper, KDMultiViewWrapper, XTransformWrapper
 from pytorch_concurrent_dataloader import DataLoader as ConcurrentDataloader
 from torch.utils.data import DistributedSampler, DataLoader, RandomSampler, SequentialSampler
 
@@ -14,6 +15,7 @@ from distributed.config import is_distributed, get_world_size
 from providers.config_providers.noop_config_provider import NoopConfigProvider
 from utils.infinite_batch_sampler import InfiniteBatchSampler
 from utils.num_worker_heuristic import get_num_workers, get_total_cpu_count, get_num_fetch_workers
+from dataloaders.data_loader_wrapper import DataLoaderWrapper
 
 
 class DataContainer:
@@ -107,6 +109,15 @@ class DataContainer:
         elif isinstance(loader, ConcurrentDataloader):
             dataloader_class = "concurrent"
             num_fetch_workers_str = f" num_fetch_workers={loader.num_fetch_workers}"
+        elif isinstance(loader, DataLoaderWrapper):
+            dataloader_class = "wrapper"
+            subloader = loader.dataloader
+            if isinstance(subloader, DataLoader):
+                num_fetch_workers_str = ""
+            elif isinstance(subloader, ConcurrentDataloader):
+                num_fetch_workers_str = f" num_fetch_workers={subloader.num_fetch_workers}"
+            else:
+                raise NotImplementedError
         else:
             raise NotImplementedError
         self.logger.info(
@@ -219,15 +230,15 @@ class DataContainer:
 
         # KDScheduledTransform requires num_workers > 0
         if num_workers == 0:
-            multi_view_wrapper = dataset.get_wrapper_of_type(kd.KDMultiViewWrapper)
+            multi_view_wrapper = dataset.get_wrapper_of_type(KDMultiViewWrapper)
             if multi_view_wrapper is not None:
                 for transform_config in multi_view_wrapper.transform_configs:
-                    if isinstance(transform_config.transform, kd.KDScheduledTransform):
+                    if isinstance(transform_config.transform, KDScheduledTransform):
                         self.logger.info(f"found KDScheduledTransform with num_workers == 0 -> use num_workers=1")
                         num_workers = 1
-            x_transform_wrapper = dataset.get_wrapper_of_type(kd.XTransformWrapper)
+            x_transform_wrapper = dataset.get_wrapper_of_type(XTransformWrapper)
             if x_transform_wrapper is not None:
-                if isinstance(x_transform_wrapper.transform, kd.KDScheduledTransform):
+                if isinstance(x_transform_wrapper.transform, KDScheduledTransform):
                     self.logger.info(f"found KDScheduledTransform with num_workers == 0 -> use num_workers=1")
                     num_workers = 1
 
@@ -262,24 +273,29 @@ class DataContainer:
                 else:
                     sampler = SequentialSampler(dataset)
             batch_sampler = InfiniteBatchSampler(sampler=sampler, batch_size=batch_size, drop_last=drop_last)
-            return dl_ctor(
+            dl = dl_ctor(
                 dataset=dataset,
                 batch_sampler=batch_sampler,
                 pin_memory=pin_memory,
                 **dl_kwargs,
                 **kwargs,
             )
+        else:
+            dl = dl_ctor(
+                dataset,
+                sampler=sampler,
+                batch_size=batch_size,
+                shuffle=shuffle,
+                drop_last=drop_last,
+                **dl_kwargs,
+                **kwargs,
+                pin_memory=pin_memory,
+            )
 
-        return dl_ctor(
-            dataset,
-            sampler=sampler,
-            batch_size=batch_size,
-            shuffle=shuffle,
-            drop_last=drop_last,
-            **dl_kwargs,
-            **kwargs,
-            pin_memory=pin_memory,
-        )
+        if dataset.batch_wrappers is not None and len(dataset.batch_wrappers) > 0:
+            dl = DataLoaderWrapper(dl, dataset.batch_wrappers)
+
+        return dl
 
     def dispose(self):
         for dataset in self.datasets.values():

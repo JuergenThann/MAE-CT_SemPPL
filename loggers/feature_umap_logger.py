@@ -1,7 +1,7 @@
 from functools import partial
 
 import torch
-from kappadata import ModeWrapper
+from kappadata.wrappers.mode_wrapper import ModeWrapper
 from torcheval.metrics.functional import binary_auprc
 from torchmetrics.functional.classification import binary_auroc
 
@@ -27,7 +27,6 @@ class FeatureUmapLogger(DatasetLogger):
             min_dist=0.1,
             metric='euclidean',
             forward_kwargs=None,
-            exclude_negative_labels=True,
             **kwargs,
     ):
         super().__init__(**kwargs)
@@ -113,9 +112,8 @@ class FeatureUmapLogger(DatasetLogger):
                 column_headers = [f"d{i}" for i in range(self.n_components)] + ["label"]
 
                 dataset = self.data_container.get_dataset(self.dataset_key)
-                if isinstance(dataset, TorchvisionDatasetWrapper):
-                    dataset_wrapper = dataset
-                    y = list([dataset_wrapper.dataset.classes[y_] for y_ in y])
+                if isinstance(dataset.root_dataset, TorchvisionDatasetWrapper):
+                    y = list([dataset.root_dataset.dataset.classes[y_] for y_ in y])
 
                 self.writer.add_scatterplot(key, column_headers, [u_ + [y_] for u_, y_ in zip(u.tolist(), y)],
                                             update_counter)

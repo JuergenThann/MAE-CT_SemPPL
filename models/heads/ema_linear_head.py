@@ -27,27 +27,30 @@ class EmaLinearHead(LinearHead):
         copy_params(self, self.target_head)
 
     def forward(self, x, target_x=None, view=None):
-        logits = None
+        result = {}
+
         if x is not None:
-            logits = super().forward(x, view=view)
-
-        target_logits = None
+            result['logits'] = super().forward(x, view=view)
         if target_x is not None:
-            target_logits = self.target_head(x if target_x is None else target_x, view=view)
+            result['target_logits'] = self.target_head(target_x, view=view)
 
-        return dict(logits=logits, target_logits=target_logits)
+        return result
 
     def after_update_step(self):
         update_ema(self, self.target_head, self.target_factor)
 
     def features(self, x):
-        raise NotImplementedError
+        result = self.forward(x, target_x=None) if self.training else self.forward(None, target_x=x)
+        if len(result) == 1:
+            return next(iter(result.values()))
+        else:
+            raise NotImplementedError()
 
     def predict(self, x):
-        raise NotImplementedError
+        return dict(main=self.features(x))
 
     def predict_binary(self, x):
-        raise NotImplementedError
+        return self.predict(x)
 
     def get_loss(self, outputs, idx, y):
         raise NotImplementedError

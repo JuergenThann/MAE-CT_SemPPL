@@ -2,7 +2,7 @@ from functools import partial
 
 import kappaprofiler as kp
 import torch
-from kappadata import KDMultiViewWrapper
+from kappadata.wrappers import KDMultiViewWrapper
 from torch.distributed import all_gather_object
 
 from datasets.sample_wrappers.multi_view_wrapper import MultiViewWrapper
@@ -73,10 +73,12 @@ class TrainerBase(TrainerInterface):
     def _get_input_shape_from_dataset(self, dataset_key):
         # return_ctx=True is required for e.g. MixWrapper
         sample = self.data_container.get_dataset(dataset_key, mode="x", return_ctx=True)[0][0]
-        if isinstance(
-                self.data_container.get_dataset(dataset_key),
-                (KDMultiViewWrapper, MultiViewWrapper, MultiCropWrapper),
-        ):
+        if len([
+            1
+            for wrapper_type
+            in self.data_container.get_dataset(dataset_key).all_wrapper_types
+            if wrapper_type in (KDMultiViewWrapper, MultiViewWrapper, MultiCropWrapper)
+        ]) > 0:
             return sample[0].shape
         return sample.shape
 

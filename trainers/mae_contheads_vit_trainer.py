@@ -2,6 +2,7 @@ from functools import partial
 
 import kappaprofiler as kp
 import torch
+import re
 from datasets.transforms import transform_from_kwargs, transform_collate_fn
 
 from datasets.sample_wrappers.multi_view_wrapper import MultiViewWrapper
@@ -111,6 +112,8 @@ class MaeContheadsVitTrainer(MaeVitTrainer):
             if "view0" in ctx.keys():
                 for view_name in [f"view{view_idx}" for view_idx in range(view_start_idx, view_start_idx + n_views)]:
                     shape_outputs.update({f"ctx.{view_name}.{k}": v for k, v in ctx[view_name].items()})
+            shape_outputs.update({f"ctx.{k}": v for k, v in ctx.items() if not re.match(r'view\d+$', k)})
+
 
             view_start_idx += n_views
 
@@ -148,6 +151,7 @@ class MaeContheadsVitTrainer(MaeVitTrainer):
 
             all_total_losses = []
             for head_name, head in model.contrastive_heads.items():
+                shape_outputs[head_name].update({k: v for k, v in shape_outputs.items() if k.startswith('ctx.')})
                 shape_outputs[head_name]["shape_idx"] = i
                 head_losses, head_outputs = head.get_loss(shape_outputs[head_name], idx=idx, y=y)
                 all_total_losses.append(head_losses.pop("total"))

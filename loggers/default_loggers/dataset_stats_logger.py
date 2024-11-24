@@ -1,5 +1,6 @@
 import torch
-from kappadata import ModeWrapper, KDMixWrapper
+from kappadata.wrappers.mode_wrapper import ModeWrapper
+from kappadata.wrappers.sample_wrappers import KDMixWrapper
 from kappadata.utils.class_counts import get_class_counts
 
 from datasets.imagenet_a import ImageNetA

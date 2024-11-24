@@ -2,15 +2,16 @@ from kappadata import KDDataset
 
 from providers.dataset_config_provider import DatasetConfigProvider
 from utils.collator_from_kwargs import collator_from_kwargs
-from utils.factory import create_collection
+from utils.factory import create_collection, instantiate
 
 
 class DatasetBase(KDDataset):
     def __init__(self, collators=None, dataset_config_provider: DatasetConfigProvider = None, dataloader=None, **kwargs):
-        super().__init__(**kwargs)
+        collators = create_collection(collators, collator_from_kwargs)
+        super().__init__(collators=collators, **kwargs)
         self.dataset_config_provider = dataset_config_provider
-        self.collators = create_collection(collators, collator_from_kwargs)
         self.dataloader = dataloader
+        self.batch_wrappers = None
 
     def __len__(self):
         raise NotImplementedError

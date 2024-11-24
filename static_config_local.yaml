@@ -30,6 +30,7 @@ global_dataset_paths:
   # imagenet15_dogs: ${vars.public_data}/ImageNet15/imagenet15_dogs
   imagenet10: ${vars.public_data}/ImageNet10/imagenet10_clustering
   cifar10: ${vars.public_data}/cifar-10-batches-py
+  cifar100: ${vars.public_data}/cifar-100-python
 
 # OPTIONAL: path to (fast) local storage
 local_dataset_path: /media/SSD_Gaming/AI/maect

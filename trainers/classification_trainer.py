@@ -1,5 +1,5 @@
 import kappaprofiler as kp
-from kappadata import LabelSmoothingWrapper
+from kappadata.wrappers import LabelSmoothingWrapper
 from torch.nn.functional import cross_entropy
 
 from losses import loss_fn_from_kwargs

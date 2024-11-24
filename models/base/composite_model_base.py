@@ -1,11 +1,14 @@
 from optimizers.composite_optimizer import CompositeOptimizer
 from .model_base import ModelBase
+from utils.factory import create_collection
+from models.extractors import extractor_from_kwargs
 
 
 class CompositeModelBase(ModelBase):
-    def __init__(self, **kwargs):
+    def __init__(self, extractors=None, **kwargs):
         super().__init__(**kwargs)
         self._optim = CompositeOptimizer(self)
+        self.extractors = create_collection(extractors, extractor_from_kwargs, outputs=self.ctx)
 
     def forward(self, *args, **kwargs):
         """ all computations for training have to be within the forward method (otherwise DDP doesn't sync grads) """
@@ -24,6 +27,13 @@ class CompositeModelBase(ModelBase):
     @property
     def is_batch_size_dependent(self):
         return any(m.is_batch_size_dependent for m in self.submodels.values())
+
+    def register_extractor_hooks(self):
+        if len(self.extractors) > 0:
+            for extractor in self.extractors:
+                extractor.register_hooks(self)
+                extractor.enable_hooks()
+        return self
 
     def should_apply_model_specific_initialization(self):
         for m in self.submodels.values():

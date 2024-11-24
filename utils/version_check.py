@@ -5,7 +5,6 @@ import kappaconfig
 import kappadata
 import kappaprofiler
 import packaging.version
-import pytorch_concurrent_dataloader
 import torch
 import torchmetrics
 

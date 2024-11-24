@@ -3,7 +3,7 @@ from functools import partial
 
 import numpy as np
 import torch
-from kappadata import ModeWrapper
+from kappadata.wrappers import ModeWrapper
 from metrics.functional.auprc import auprc
 from torch.nn.functional import cross_entropy
 from torchmetrics.functional.classification import multiclass_accuracy, binary_auroc

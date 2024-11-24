@@ -1,0 +1,249 @@
+vars:
+  label_percentage: 0.01
+  lr: 0.0001
+  weight_decay_encoder: 0.05
+  weight_decay_head: 0.05
+  beta2: 0.999
+  layerwise_lr_decay: 1.0
+  warmup_epochs: 5
+  max_epochs: 100
+  target_factor: 0.99
+  # randaug_num_ops: 2
+  # randaug_magnitude: 9
+  # randaug_magnitude_std: 0.5
+  # randaug_apply_op_p: 1
+  # mixup: 0.8
+  # cutmix: 1.0
+  # drop_path: 0
+
+stage_name: 5stage_mae_finetuning_fixmatch_semppl_finetuning_stage4_semppl_1p
+datasets:
+  train:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar10
+    num_classes: 10
+    torchvision_args:
+      kind: CIFAR10
+      train: true
+      download: false
+    dataset_wrappers:
+      - kind: semisupervised_wrapper
+        labeled_percentage: ${eval:${vars.label_percentage} * 100}
+      - kind: semisupervised_oversampling_wrapper
+        include_labeled_in_unlabeled: true
+        unlabeled_to_labeled_ratio: 7
+    sample_wrappers:
+      - kind: multi_crop_wrapper
+        transform_configs:
+          - n_views: 4
+            transforms:
+              - interpolation: bicubic
+                kind: kd_random_resized_crop
+                scale:
+                  - 0.08
+                  - 1.0
+                size: 32
+              - kind: kd_random_horizontal_flip
+              - kind: kd_random_color_jitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - kind: kd_random_grayscale
+                p: 0.2
+              - kind: kd_random_gaussian_blur_tv
+                p: 0.55
+                kernel_size: 3
+                sigma:
+                  - 0.1
+                  - 2.0
+              # - kind: kd_random_solarize
+              #   p: 0.1
+              #   threshold: 0.5
+              - kind: kd_cifar10_norm
+          - n_views: 2
+            transforms:
+              - interpolation: bicubic
+                kind: kd_random_resized_crop
+                scale:
+                  - 0.08
+                  - 1.0
+                size: 16
+              - kind: kd_random_horizontal_flip
+              - kind: kd_random_color_jitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - kind: kd_random_grayscale
+                p: 0.2
+              - kind: kd_random_gaussian_blur_tv
+                p: 0.55
+                kernel_size: 3
+                sigma:
+                  - 0.1
+                  - 2.0
+              # - kind: kd_random_solarize
+              #   p: 0.1
+              #   threshold: 0.5
+              - kind: kd_cifar10_norm
+model:
+  kind: mae_contheads_vit
+  target_factor: ${vars.target_factor}
+  encoder:
+    kind: vit.masked_encoder
+    patch_size: 4
+    embedding_dim: 192
+    depth: 12
+    attention_heads: 3
+    optim:
+      kind: adamw
+      lr: ${vars.lr}
+      weight_decay: ${vars.weight_decay_encoder}
+      betas:
+        - 0.9
+        - ${vars.beta2}
+      param_group_modifiers:
+        - decay: ${vars.layerwise_lr_decay}
+          kind: layerwise_lr_decay_modifier
+      schedule:
+        - end_checkpoint:
+            epoch: ${vars.warmup_epochs}
+          exclude_first: true
+          exclude_last: true
+          kind: linear_increasing
+        - exclude_last: true
+          kind: cosine_decreasing
+    initializer:
+      checkpoint: last
+      kind: previous_run_initializer
+      model_name: semivit.target_encoder
+      stage_id: kd0rpcne
+      stage_name: 3stage_mae_finetuning_fixmatch_stage3_fixmatch_1p
+  contrastive_heads:
+    semppl:
+      kind: contrastive_heads.semppl_ema_queue_head
+      proj_hidden_dim: 512
+      pred_hidden_dim: 1024
+      output_dim: 64
+      queue_size: 2560
+      temperature: 0.15
+      target_factor: ${vars.target_factor}
+      pooling:
+        kind: mean_patch
+      optim:
+        kind: adamw
+        lr: ${vars.lr}
+        betas:
+          - 0.9
+          - ${vars.beta2}
+        weight_decay: ${vars.weight_decay_head}
+        schedule:
+          - end_checkpoint:
+              epoch: ${vars.warmup_epochs}
+            exclude_first: true
+            exclude_last: true
+            kind: linear_increasing
+          - exclude_last: true
+            kind: cosine_decreasing
+      topk: 1
+      num_semantic_positives: 3
+      num_queues: 4
+      num_large_views: 4
+      num_small_views: 2
+      num_negatives: 10
+      alpha: 0.2
+      lambda_: 5
+      c: 0.3
+trainer:
+  kind: mae_contheads_vit_trainer
+  max_epochs: ${vars.max_epochs}
+  effective_batch_size: 128
+  precision: bfloat16
+  mask_generator:
+    kind: random_mask_generator
+    mask_ratio: 0.0
+  normalize_pixels: true
+  log_every_n_epochs: 1
+  loggers:
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: pseudo_label_acc
+      invert_key: false
+      category: loss
+    - kind: group_update_output_logger
+      every_n_samples: 2560
+      pattern: nn_accuracy
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: nn_accuracy
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: L_augm
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: L_sempos
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: L_SemPPL_wo_inv_pen
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: I_augm
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: I_sempos
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: vote_confidence
+      invert_key: false
+      category: pseudo_labeling
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: known_label_count
+      invert_key: false
+      category: pseudo_labeling
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: known_label_acc
+      invert_key: false
+      category: pseudo_labeling
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: unknown_label_count
+      invert_key: false
+      category: pseudo_labeling
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: unknown_label_acc
+      invert_key: false
+      category: pseudo_labeling
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: thresholded_label_count
+      invert_key: false
+      category: pseudo_labeling
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: thresholded_label_acc
+      invert_key: false
+      category: pseudo_labeling
+    - kind: checkpoint_logger
+      every_n_epochs: 10
+    - kind: ema_logger
+      every_n_epochs: 10
+      model_paths:
+        - encoder
+      target_factors:
+        - ${vars.target_factor}

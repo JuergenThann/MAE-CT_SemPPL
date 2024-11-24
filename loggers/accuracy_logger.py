@@ -7,14 +7,15 @@ from torchmetrics.functional.classification import multiclass_accuracy
 from distributed.gather import all_gather_nograd_clipped
 from .base.dataset_logger import DatasetLogger
 
-from kappadata import LabelSmoothingWrapper
+from kappadata.wrappers.sample_wrappers import LabelSmoothingWrapper
 
 
 class AccuracyLogger(DatasetLogger):
-    def __init__(self, predict_kwargs=None, accuracies_per_class=False, use_target=False, **kwargs):
+    def __init__(self, predict_kwargs=None, accuracies_per_class=False, accuracy_view_idx=None, **kwargs):
         super().__init__(**kwargs)
         self.predict_kwargs = predict_kwargs or {}
         self.accuracies_per_class = accuracies_per_class
+        self.accuracy_view_idx = accuracy_view_idx
 
     def _before_training_impl(self, **kwargs):
         if self.dataset.n_classes <= 10:
@@ -29,6 +30,8 @@ class AccuracyLogger(DatasetLogger):
         if self.dataset.has_wrapper_type(LabelSmoothingWrapper):
             cls = torch.argmax(cls, dim=-1)
         x = x.to(model.device, non_blocking=True)
+        if self.accuracy_view_idx is not None:
+            x = x[:, self.accuracy_view_idx, ...]
         with trainer.autocast_context:
             predictions = model.predict(x, **self.predict_kwargs)
         predictions = {name: prediction.cpu() for name, prediction in predictions.items()}
@@ -62,6 +65,7 @@ class AccuracyLogger(DatasetLogger):
 
         # log
         classes = classes.to(model.device, non_blocking=True)
+        classes[classes < 0] = -classes[classes < 0] - 1
         for prediction_name, prediction in predictions.items():
             prediction = prediction.to(model.device, non_blocking=True)
             for topk in self.top_k:

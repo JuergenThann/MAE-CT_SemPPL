@@ -8,9 +8,10 @@ from utils.running_mean import RunningMean
 
 
 class LossLogger(DatasetLogger):
-    def __init__(self, forward_kwargs=None, **kwargs):
+    def __init__(self, forward_kwargs=None, accuracy_view_idx=None, **kwargs):
         super().__init__(**kwargs)
         self.forward_kwargs = objects_from_kwargs(forward_kwargs)
+        self.accuracy_view_idx = accuracy_view_idx
 
     def _forward_loss(self, batch, model, trainer):
         with trainer.autocast_context:

@@ -1,4 +1,4 @@
-from kappadata import SubsetWrapper
+from kappadata.wrappers import SubsetWrapper
 # TODO import from kappadata
 from kappadata.wrappers.dataset_wrappers.classwise_subset_wrapper import ClasswiseSubsetWrapper
 
