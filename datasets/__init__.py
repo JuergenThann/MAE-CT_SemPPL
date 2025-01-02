@@ -2,12 +2,12 @@ from utils.factory import instantiate
 from pathlib import Path
 from kappadata.utils.logging import log
 import shutil
-import os
 
 
 def dataset_from_kwargs(
         kind,
         dataset_config_provider,
+        dataset_key,
         dataset_wrappers=None,
         sample_wrappers=None,
         batch_wrappers=None,
@@ -19,6 +19,7 @@ def dataset_from_kwargs(
         dataset_config_provider=dataset_config_provider,
         **kwargs,
     )
+    dataset.dataset_key = dataset_key
     if dataset_wrappers is not None:
         assert isinstance(dataset_wrappers, list)
         for dataset_wrapper_kwargs in dataset_wrappers:

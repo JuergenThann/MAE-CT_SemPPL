@@ -1,5 +1,5 @@
 vars:
-  label_percentage: 0.01
+  label_percentage: 0.1
   lr: 0.0001
   weight_decay_encoder: 0.05
   weight_decay_head: 0.05
@@ -20,10 +20,10 @@ stage_name: 3stage_semppl_stage2_semppl
 datasets:
   train:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar10
-    num_classes: 10
+    dataset_identifier: cifar100
+    num_classes: 100
     torchvision_args:
-      kind: CIFAR10
+      kind: CIFAR100
       train: true
       download: false
     dataset_wrappers:
@@ -58,10 +58,10 @@ datasets:
                 sigma:
                   - 0.1
                   - 2.0
-              # - kind: kd_random_solarize
-              #   p: 0.1
-              #   threshold: 0.5
-              - kind: kd_cifar10_norm
+              - kind: kd_random_solarize
+                p: 0.1
+                threshold: 0.5
+              - kind: kd_cifar100_norm
           - n_views: 2
             transforms:
               - interpolation: bicubic
@@ -85,10 +85,10 @@ datasets:
                 sigma:
                   - 0.1
                   - 2.0
-              # - kind: kd_random_solarize
-              #   p: 0.1
-              #   threshold: 0.5
-              - kind: kd_cifar10_norm
+              - kind: kd_random_solarize
+                p: 0.1
+                threshold: 0.5
+              - kind: kd_cifar100_norm
 model:
   kind: mae_contheads_vit
   target_factor: ${vars.target_factor}
@@ -120,7 +120,7 @@ model:
       checkpoint: last
       kind: previous_run_initializer
       model_name: mae_contheads_vit.encoder
-      stage_id: x8loap89
+      stage_id: bvi0cxlb
       stage_name: stage1_mae
   contrastive_heads:
     semppl:

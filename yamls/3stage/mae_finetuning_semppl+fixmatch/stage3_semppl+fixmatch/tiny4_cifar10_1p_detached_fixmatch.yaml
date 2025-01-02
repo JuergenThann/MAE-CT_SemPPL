@@ -1,0 +1,575 @@
+vars:
+  # general
+  label_percentage: 0.01
+  weight_decay: 0.05
+  beta2: 0.999
+  warmup_epochs: 5
+  max_epochs: 100
+  batch_size: 128
+  layerwise_lr_decay: 1.0
+  label_smoothing: 0.1
+  unlabeled_to_labeled_ratio: 7
+
+  # encoder
+  lr_encoder: 0.0001
+  target_factor_encoder: 0.99
+
+  # SemPPL
+  lr_semppl: 0.0001
+  target_factor_semppl: 0.99
+  min_scale_semppl: 0.08
+
+  # FixMatch
+  lr_fixmatch: 0.005
+  target_factor_fixmatch: 0.9999
+  min_scale_fixmatch: 0.8
+  randaug_num_ops: 1
+  randaug_magnitude: 9
+  randaug_magnitude_std: 0.5
+  randaug_apply_op_p: 1
+  color_jitter: 0.4
+  threshold: 0.6
+  unsupervised_loss_weight: 5
+  teacher_pseudo_labeling: true
+  strong_augmentation_for_labeled: true
+  n_views_fixmatch: 2
+  continue_from_stage_id: 411uq238
+  continue_from_stage_name: 3stage_mae_finetuning_fixmatch_stage2_finetuning_1p
+
+stage_name: 3stage_mae_finetuning_semppl+fixmatch_stage3_semppl+fixmatch
+datasets:
+  train:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar10
+    num_classes: 10
+    torchvision_args:
+      kind: CIFAR10
+      train: true
+      download: false
+    dataset_wrappers:
+      - kind: semisupervised_wrapper
+        labeled_percentage: ${eval:${vars.label_percentage} * 100}
+      - kind: semisupervised_oversampling_wrapper
+        include_labeled_in_unlabeled: true
+        unlabeled_to_labeled_ratio: ${vars.unlabeled_to_labeled_ratio}
+    sample_wrappers:
+      - kind: multi_crop_wrapper
+        transform_configs:
+          - n_views: 4
+            transforms:
+              - interpolation: bicubic
+                kind: kd_random_resized_crop
+                scale:
+                  - ${vars.min_scale_semppl}
+                  - 1.0
+                size: 32
+              - kind: kd_random_horizontal_flip
+              - kind: kd_random_color_jitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - kind: kd_random_grayscale
+                p: 0.2
+              - kind: kd_random_gaussian_blur_tv
+                p: 0.55
+                kernel_size: 3
+                sigma:
+                  - 0.1
+                  - 2.0
+              - kind: kd_random_solarize
+                p: 0.1
+                threshold: 0.5
+              - kind: kd_cifar10_norm
+          - n_views: 2
+            transforms:
+              - interpolation: bicubic
+                kind: kd_random_resized_crop
+                scale:
+                  - ${vars.min_scale_semppl}
+                  - 1.0
+                size: 16
+              - kind: kd_random_horizontal_flip
+              - kind: kd_random_color_jitter
+                brightness: 0.4
+                contrast: 0.4
+                saturation: 0.2
+                hue: 0.1
+                p: 0.8
+              - kind: kd_random_grayscale
+                p: 0.2
+              - kind: kd_random_gaussian_blur_tv
+                p: 0.55
+                kernel_size: 3
+                sigma:
+                  - 0.1
+                  - 2.0
+              - kind: kd_random_solarize
+                p: 0.1
+                threshold: 0.5
+              - kind: kd_cifar10_norm
+          - n_views: 1
+            transforms:
+              - interpolation: bicubic
+                kind: kd_random_resized_crop
+                scale:
+                  - ${vars.min_scale_fixmatch}
+                  - 1.0
+                size: 32
+              - kind: kd_random_horizontal_flip
+              - kind: kd_color_jitter
+                brightness: ${vars.color_jitter}
+                contrast: ${vars.color_jitter}
+                saturation: ${vars.color_jitter}
+              - kind: kd_cifar10_norm
+          - n_views: 1
+            transforms:
+              - interpolation: bicubic
+                kind: kd_random_resized_crop
+                scale:
+                  - ${vars.min_scale_fixmatch}
+                  - 1.0
+                size: 32
+              - kind: kd_random_horizontal_flip
+              - kind: kd_rand_augment
+                num_ops: ${vars.randaug_num_ops}
+                magnitude: ${vars.randaug_magnitude}
+                magnitude_std: ${vars.randaug_magnitude_std}
+                apply_op_p: ${vars.randaug_apply_op_p}
+                interpolation: bicubic
+                fill_color: [ 125, 123, 114 ]
+              - kind: kd_cifar10_norm
+      - kind: semisupervised_label_smoothing_wrapper
+        smoothing: ${vars.label_smoothing}
+  train_unaugmented:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar10
+    num_classes: 10
+    torchvision_args:
+      kind: CIFAR10
+      train: true
+      download: false
+    x_transform:
+      - kind: kd_cifar10_norm
+  test:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar10
+    num_classes: 10
+    torchvision_args:
+      kind: CIFAR10
+      train: false
+      download: false
+    x_transform:
+      - kind: kd_cifar10_norm
+  test_small:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar10
+    num_classes: 10
+    torchvision_args:
+      kind: CIFAR10
+      train: false
+      download: false
+    dataset_wrappers:
+      - kind: classwise_subset_wrapper
+        end_index: 200
+    x_transform:
+      - kind: kd_cifar10_norm
+
+model:
+  kind: mae_contheads_vit
+  target_factor: ${vars.target_factor_encoder}
+  predict_head: fixmatch
+  encoder:
+    kind: vit.masked_encoder
+    patch_size: 4
+    embedding_dim: 192
+    depth: 12
+    attention_heads: 3
+    optim:
+      kind: adamw
+      lr: ${vars.lr_encoder}
+      weight_decay: ${vars.weight_decay}
+      betas:
+        - 0.9
+        - ${vars.beta2}
+      param_group_modifiers:
+        - decay: ${vars.layerwise_lr_decay}
+          kind: layerwise_lr_decay_modifier
+      schedule:
+        - end_checkpoint:
+            epoch: ${vars.warmup_epochs}
+          exclude_first: true
+          exclude_last: true
+          kind: linear_increasing
+        - exclude_last: true
+          kind: cosine_decreasing
+    initializer:
+      checkpoint: last
+      kind: previous_run_initializer
+      model_name: backbone_head.backbone
+      stage_id: ${vars.continue_from_stage_id}
+      stage_name: ${vars.continue_from_stage_name}
+  contrastive_heads:
+    semppl:
+      kind: contrastive_heads.semppl_ema_queue_head
+      proj_hidden_dim: 512
+      pred_hidden_dim: 1024
+      output_dim: 64
+      queue_size: 2560
+      temperature: 0.15
+      target_factor: ${vars.target_factor_semppl}
+      pooling:
+        kind: mean_patch
+      optim:
+        kind: adamw
+        lr: ${vars.lr_semppl}
+        betas:
+          - 0.9
+          - ${vars.beta2}
+        weight_decay: ${vars.weight_decay}
+        schedule:
+          - end_checkpoint:
+              epoch: ${vars.warmup_epochs}
+            exclude_first: true
+            exclude_last: true
+            kind: linear_increasing
+          - exclude_last: true
+            kind: cosine_decreasing
+      views_to_consume:
+        train:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+      topk: 1
+      num_semantic_positives: 3
+      num_queues: 4
+      num_large_views: 4
+      num_small_views: 2
+      num_negatives: 10
+      alpha: 0.2
+      lambda_: 5
+      c: 0.3
+    fixmatch:
+      kind: heads.fixmatch_head
+      target_factor: ${vars.target_factor_fixmatch}
+      nonaffine_batchnorm: true
+      output_shape: 10
+      detach_head: true
+      threshold: ${vars.threshold}
+      unsupervised_loss_weight: ${vars.unsupervised_loss_weight}
+      teacher_pseudo_labeling: ${vars.teacher_pseudo_labeling}
+      strong_augmentation_for_labeled: ${vars.strong_augmentation_for_labeled}
+      pooling:
+        kind: class_token
+        # kind: mean_patch
+      optim:
+        kind: adamw
+        lr: ${vars.lr_fixmatch}
+        lr_scaler:
+          kind: linear_lr_scaler
+          # scale lr with number of labeled samples only (-> increase divisor according to num of labeled samples)
+          # lr = base_lr * batchsize_l/256
+          # formula in code is base_lr * batchsize / divisor
+          # to get the modified scaled LR:
+          # - reverse multiplication by batchsize by dividing by batchsize
+          # - calculate labeled batch size
+          # - set divisor to inverse of desired lr scale factor -> 256/batchsize_l = 256*(u2lr+1)/batchsize
+          divisor: ${eval:${vars.batch_size} * ${vars.n_views_fixmatch} * 256 / (${vars.batch_size} / (${vars.unlabeled_to_labeled_ratio}+1))}
+        betas:
+          - 0.9
+          - ${vars.beta2}
+        weight_decay: ${vars.weight_decay}
+        schedule:
+          - end_checkpoint:
+              epoch: ${vars.warmup_epochs}
+            exclude_first: true
+            exclude_last: true
+            kind: linear_increasing
+          - exclude_last: true
+            kind: cosine_decreasing
+      initializer:
+        checkpoint: last
+        kind: previous_run_initializer
+        model_name: backbone_head.head
+        stage_id: ${vars.continue_from_stage_id}
+        stage_name: ${vars.continue_from_stage_name}
+      views_to_consume:
+        train:
+          - 6
+          - 7
+        train_unaugmented:
+          - 0
+        test:
+          - 0
+        test_small:
+          - 0
+trainer:
+  kind: mae_contheads_vit_trainer
+  max_epochs: ${vars.max_epochs}
+  effective_batch_size: ${vars.batch_size}
+  precision: bfloat16
+  mask_generator:
+    kind: random_mask_generator
+    mask_ratio: 0.0
+  normalize_pixels: true
+  log_every_n_epochs: 1
+  loggers:
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: pseudo_label_acc
+      invert_key: false
+      category: loss
+    - kind: group_update_output_logger
+      every_n_samples: 2560
+      pattern: nn_accuracy
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: nn_accuracy
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: L_augm
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: L_sempos
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: L_SemPPL_wo_inv_pen
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: I_augm
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: I_sempos
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: loss_weight
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: detach_head
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: vote_confidence
+      invert_key: false
+      category: pseudo_labeling
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: known_label_count
+      invert_key: false
+      category: pseudo_labeling
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: known_label_acc
+      invert_key: false
+      category: pseudo_labeling
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: unknown_label_count
+      invert_key: false
+      category: pseudo_labeling
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: unknown_label_acc
+      invert_key: false
+      category: pseudo_labeling
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: thresholded_label_count
+      invert_key: false
+      category: pseudo_labeling
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: thresholded_label_acc
+      invert_key: false
+      category: pseudo_labeling
+    - kind: checkpoint_logger
+      every_n_epochs: 10
+    - kind: ema_logger
+      every_n_epochs: 10
+      model_paths:
+        - encoder
+      target_factors:
+        - ${vars.target_factor_encoder}
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: supervised_loss
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: unsupervised_loss
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: unsupervised_loss_mean_over_threshold
+      invert_key: false
+      category: loss
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: samples_above_threshold
+      invert_key: false
+      category: confidence
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: classification_confidence_unlabeled
+      invert_key: false
+      category: confidence
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: classification_confidence_unlabeled_over_threshold
+      invert_key: false
+      category: confidence
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: classification_confidence_labeled
+      invert_key: false
+      category: confidence
+    - every_n_epochs: 1
+      kind: group_update_output_logger
+      pattern: pseudo_label_accuracy
+      invert_key: false
+      category: confidence
+    - kind: loss_logger
+      every_n_epochs: 1
+      dataset_key: train_unaugmented
+    - kind: loss_logger
+      every_n_epochs: 1
+      dataset_key: test
+    # for comparibility (add to all last steps):
+    - kind: accuracy_logger
+      every_n_epochs: 1
+      dataset_key: train_unaugmented
+      predict_kwargs:
+        views:
+          - 0
+        dataset_key: train_unaugmented
+    - kind: accuracy_logger
+      every_n_epochs: 1
+      dataset_key: test
+      predict_kwargs:
+        views:
+          - 0
+        dataset_key: test
+    - kind: best_model_logger
+      every_n_epochs: 1
+      metric_key: accuracy1/test/fixmatch
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy1/train_unaugmented*
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy1/train_unaugmented*
+      log_absolute_best: true
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy1/test*
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy1/test*
+      log_absolute_best: true
+    - kind: feature_umap_logger
+      dataset_key: test_small
+      every_n_epochs: ${vars.max_epochs}
+      n_components: 2
+      n_neighbors: 100
+      min_dist: 0.2
+      metric: 'euclidean'
+      extractors:
+        - kind: generic_extractor
+          model_property_path: contrastive_heads.fixmatch.target_head.pooling
+    - kind: knn_metrics_logger
+      every_n_epochs: ${vars.max_epochs}
+      train_dataset_key: train_unaugmented
+      test_dataset_key: test
+      extractors:
+        - kind: generic_extractor
+          model_property_path: contrastive_heads.fixmatch.target_head.pooling
+      knns:
+        - 1
+        - 2
+        - 3
+        - 5
+        - 8
+        - 13
+        - 21
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn01/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn01/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn02/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn02/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn03/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn03/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn05/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn05/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn08/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn08/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn13/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn13/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn21/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn21/
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: knn_accuracy/knn*
+    - kind: best_metric_logger
+      every_n_epochs: ${vars.max_epochs}
+      pattern: nn_purity/knn*
+
+
+summary_summarizers:
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy1/train_unaugmented*/last
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy1/train_unaugmented*/max
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy1/test*/last
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy1/test*/max
+  - kind: best_metric_summary_summarizer
+    pattern: knn_accuracy/knn*/GenericExtractor-batchnorm/train_unaugmented-test/max
+  - kind: best_metric_summary_summarizer
+    pattern: nn_purity/knn*/GenericExtractor-batchnorm/train_unaugmented-test/max

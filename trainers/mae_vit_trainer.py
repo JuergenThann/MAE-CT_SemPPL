@@ -31,12 +31,12 @@ class MaeVitTrainer(SgdTrainer):
     def dataset_mode(self):
         return "x"
 
-    def forward(self, model, batch, train_dataset, mask_generator=None):
+    def forward(self, model, batch, dataset, mask_generator=None):
         x, _ = batch
         with kp.named_profile_async("to_device"):
             x = x.to(model.device, non_blocking=True)
         if x.ndim == 5:
-            x = train_dataset.to_concat_view(x)
+            x = dataset.to_concat_view(x)
 
         # for calculating the loss for logging, a mask generator has to be provided in order to be deterministic
         mask_generator = mask_generator or self.mask_generator

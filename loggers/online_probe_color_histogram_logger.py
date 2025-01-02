@@ -46,7 +46,7 @@ class OnlineProbeColorHistogramLogger(DatasetLogger):
     def _before_training_impl(self, model, train_dataset, **kwargs):
         for extractor in self.extractors:
             extractor.register_hooks(model)
-        self.norm_transform = get_norm_transform(train_dataset.x_transform)
+        self.norm_transform = get_norm_transform(self.dataset.x_transform)
 
     def before_every_update(self, update_counter, **kwargs):
         for extractor in self.extractors:
@@ -147,7 +147,7 @@ class OnlineProbeColorHistogramLogger(DatasetLogger):
 
         losses = {}
         with trainer.autocast_context:
-            trainer.forward(model=model, batch=batch, train_dataset=self.dataset)
+            trainer.forward(model=model, batch=batch, dataset=self.dataset)
             for extractor in self.extractors:
                 features = extractor.extract()
                 for model_key in self.model_keys:

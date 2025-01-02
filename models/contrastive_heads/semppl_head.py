@@ -29,6 +29,11 @@ class SemPPLHead(SemPPLNoqueueHead):
 
             is_large_views = outputs.get("shape_idx", 0) == 0
 
+            # unsmoothen labels (not supported)
+            if y.ndim == 2:
+                y_max = torch.argmax(torch.abs(y), 1)
+                y = torch.where(torch.sign(torch.sum(y, 1)) > 0, y_max, -y_max-1)
+
             with_label_map = y >= 0
             without_label_map = torch.logical_not(with_label_map)
 

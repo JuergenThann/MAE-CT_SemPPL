@@ -17,14 +17,16 @@ class ContrastiveHeadBase(SingleModelBase):
             queue_size,
             output_dim,
             pooling,
-            detach=False,
+            detach_head=False,
             loss_weight=1.,
             exclude_self_from_queue=True,
             loss_schedule=None,
+            detach_schedule=None,
             output_shape=None,
             num_queues=1,
             random_queue_label_init=False,
             n_classes=None,
+            views_to_consume=None,
             **kwargs,
     ):
         assert output_shape is None
@@ -35,12 +37,14 @@ class ContrastiveHeadBase(SingleModelBase):
         self.num_queues = num_queues
         self.exclude_self_from_queue = exclude_self_from_queue
         self.loss_weight = loss_weight
-        self.detach = detach
+        self.detach_head = detach_head
         self.pooling = create(pooling, SinglePooling) or nn.Identity()
+        self.views_to_consume = views_to_consume
         input_shape = self.pooling(torch.ones(1, *self.input_shape)).shape[1:]
         input_dim = np.prod(input_shape)
 
         self.loss_schedule = schedule_from_kwargs(loss_schedule, update_counter=self.update_counter)
+        self.detach_schedule = schedule_from_kwargs(detach_schedule, update_counter=self.update_counter)
 
         self.register_components(input_dim, output_dim)
 
@@ -93,10 +97,17 @@ class ContrastiveHeadBase(SingleModelBase):
     def register_components(self, input_dim, output_dim, **kwargs):
         raise NotImplementedError
 
+    def _get_detach_head(self):
+        detach_head = self.detach_head
+        if not self.detach_head and self.detach_schedule is not None:
+            detach_head = self.detach_schedule.get_value(self.update_counter.cur_checkpoint) != 0
+        return detach_head
+
     def forward(self, x, target_x=None, view=None):
-        if self.detach:
+        if self._get_detach_head():
             x = x.detach()
             target_x = None if target_x is None else target_x.detach()
+
         pooled = self.pooling(x).flatten(start_dim=1)
         target_pooled = None if target_x is None else self.pooling(target_x).flatten(start_dim=1)
         return self._forward(pooled, target_pooled, view)
@@ -106,12 +117,13 @@ class ContrastiveHeadBase(SingleModelBase):
 
     def get_loss(self, outputs, idx, y):
         loss, loss_outputs = self._get_loss(outputs, idx, y)
-        scaled_loss = loss * self.loss_weight
         if self.loss_schedule is not None:
             loss_weight = self.loss_weight * self.loss_schedule.get_value(self.update_counter.cur_checkpoint)
         else:
             loss_weight = self.loss_weight
+        scaled_loss = loss * loss_weight
         loss_outputs["loss_weight"] = loss_weight
+        loss_outputs["detach_head"] = 1.0 if self._get_detach_head() else 0.0
         loss_outputs["queue"] = self.queue
         loss_outputs.update(outputs)
         return dict(total=scaled_loss, loss=loss), loss_outputs
@@ -235,6 +247,3 @@ class ContrastiveHeadBase(SingleModelBase):
         queue_id[ptr:ptr + batch_size] = ids
         ptr = ptr + batch_size
         self.queue_ptr[queue_idx] = ptr
-
-    def accept_view(self, view):
-        return True

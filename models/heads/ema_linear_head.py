@@ -51,6 +51,3 @@ class EmaLinearHead(LinearHead):
 
     def predict_binary(self, x):
         return self.predict(x)
-
-    def get_loss(self, outputs, idx, y):
-        raise NotImplementedError

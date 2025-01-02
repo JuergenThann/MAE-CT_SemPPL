@@ -140,7 +140,11 @@ def train_stage(
     )
     for dataset_key, dataset_kwargs in stage_hp["datasets"].items():
         logging.info(f"initialzing {dataset_key}")
-        datasets[dataset_key] = dataset_from_kwargs(dataset_config_provider=dataset_config_provider, **dataset_kwargs)
+        datasets[dataset_key] = dataset_from_kwargs(
+            dataset_config_provider=dataset_config_provider,
+            dataset_key=dataset_key,
+            **dataset_kwargs
+        )
     data_container = DataContainer(**datasets, num_workers=cliargs.num_workers, config_provider=config_provider)
 
     # init logwriter

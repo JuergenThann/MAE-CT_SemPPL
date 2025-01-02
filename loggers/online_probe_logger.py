@@ -89,7 +89,7 @@ class OnlineProbeLogger(DatasetLogger):
                     self.models_kwargs,
                     model_from_kwargs,
                     input_shape=features.shape[1:],
-                    output_shape=(train_dataset.n_classes,),
+                    output_shape=(self.dataset.n_classes,),
                     update_counter=update_counter,
                 )
                 for i in range(len(models)):
@@ -114,17 +114,17 @@ class OnlineProbeLogger(DatasetLogger):
                 with torch.enable_grad():
                     with trainer.autocast_context:
                         preds = probe_model(features)
-                        if train_dataset.n_classes > 2:
+                        if self.dataset.n_classes > 2:
                             loss = cross_entropy(preds, classes)
                         else:
                             loss = bce_loss(preds, classes)
                         loss = loss / accumulation_steps
                         trainer.grad_scaler.scale(loss).backward()
-                if train_dataset.n_classes > 2:
+                if self.dataset.n_classes > 2:
                     train_acc = multiclass_accuracy(
                         preds=preds,
                         target=classes,
-                        num_classes=train_dataset.n_classes,
+                        num_classes=self.dataset.n_classes,
                         average="micro",
                     ).item()
                     self.tracked_accs[f"{extractor}.{model_key}"].append(train_acc)
@@ -139,7 +139,7 @@ class OnlineProbeLogger(DatasetLogger):
     def _forward(self, batch, model, trainer):
         predictions = {}
         with trainer.autocast_context:
-            trainer.forward(model=model, batch=batch, train_dataset=self.dataset)
+            trainer.forward(model=model, batch=batch, dataset=self.dataset)
             for extractor in self.extractors:
                 features = extractor.extract()
                 for model_key in self.model_keys:

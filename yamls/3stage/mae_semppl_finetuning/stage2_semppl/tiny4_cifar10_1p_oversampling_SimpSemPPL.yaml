@@ -58,9 +58,9 @@ datasets:
                 sigma:
                   - 0.1
                   - 2.0
-              # - kind: kd_random_solarize
-              #   p: 0.1
-              #   threshold: 0.5
+              - kind: kd_random_solarize
+                p: 0.1
+                threshold: 0.5
               - kind: kd_cifar10_norm
           - n_views: 2
             transforms:
@@ -85,9 +85,9 @@ datasets:
                 sigma:
                   - 0.1
                   - 2.0
-              # - kind: kd_random_solarize
-              #   p: 0.1
-              #   threshold: 0.5
+              - kind: kd_random_solarize
+                p: 0.1
+                threshold: 0.5
               - kind: kd_cifar10_norm
 model:
   kind: mae_contheads_vit

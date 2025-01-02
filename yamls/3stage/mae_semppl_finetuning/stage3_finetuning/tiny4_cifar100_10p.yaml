@@ -1,5 +1,5 @@
 vars:
-  label_percentage: 0.01
+  label_percentage: 0.1
   lr: 0.001
   weight_decay: 0.05
   beta2: 0.999
@@ -14,15 +14,17 @@ vars:
   mixup: 0.8
   cutmix: 1.0
   drop_path: 0
+  continue_from_stage_id: g9n8j0o5
+  continue_from_stage_name: 3stage_semppl_stage2_semppl
 
-stage_name: 3stage_mae_finetuning_fixmatch_stage2_finetuning_1p
+stage_name: 3stage_mae_semppl_finetuning_stage3_finetuning_10p
 datasets:
   train:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar10
-    num_classes: 10
+    dataset_identifier: cifar100
+    num_classes: 100
     torchvision_args:
-      kind: CIFAR10
+      kind: CIFAR100
       train: true
       download: false
     dataset_wrappers:
@@ -35,7 +37,7 @@ datasets:
           - kind: kd_random_resized_crop
             size: 32
             scale:
-              - 0.4
+              - 0.6
               - 1.0
             interpolation: bicubic
           - kind: kd_rand_augment
@@ -45,7 +47,7 @@ datasets:
             apply_op_p: ${vars.randaug_apply_op_p}
             interpolation: bicubic
             fill_color: [ 125, 123, 114 ]
-          - kind: kd_cifar10_norm
+          - kind: kd_cifar100_norm
       - kind: label_smoothing_wrapper
         smoothing: ${vars.label_smoothing}
     collators:
@@ -59,37 +61,34 @@ datasets:
         shuffle_mode: flip
   train_unaugmented:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar10
-    num_classes: 10
+    dataset_identifier: cifar100
+    num_classes: 100
     torchvision_args:
-      kind: CIFAR10
+      kind: CIFAR100
       train: true
       download: false
     x_transform:
-      - kind: kd_cifar10_norm
+      - kind: kd_cifar100_norm
   test:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar10
-    num_classes: 10
+    dataset_identifier: cifar100
+    num_classes: 100
     torchvision_args:
-      kind: CIFAR10
+      kind: CIFAR100
       train: false
       download: false
     x_transform:
-      - kind: kd_cifar10_norm
+      - kind: kd_cifar100_norm
   test_small:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar10
-    num_classes: 10
+    dataset_identifier: cifar100
+    num_classes: 100
     torchvision_args:
-      kind: CIFAR10
+      kind: CIFAR100
       train: false
       download: false
-    dataset_wrappers:
-      - kind: classwise_subset_wrapper
-        end_index: 200
     x_transform:
-      - kind: kd_cifar10_norm
+      - kind: kd_cifar100_norm
 model:
   kind: backbone_head
   backbone:
@@ -103,8 +102,8 @@ model:
       checkpoint: last
       kind: previous_run_initializer
       model_name: mae_contheads_vit.target_encoder
-      stage_id: 07dxju70
-      stage_name: 3stage_semppl_stage2_semppl
+      stage_id: ${vars.continue_from_stage_id}
+      stage_name: ${vars.continue_from_stage_name}
     optim:
       kind: adamw
       lr: ${vars.lr}

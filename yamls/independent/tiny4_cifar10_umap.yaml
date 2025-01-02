@@ -1,0 +1,92 @@
+vars:
+  lr: 0.001
+  weight_decay: 0.05
+  beta2: 0.999
+  layerwise_lr_decay: 0.75
+  warmup_epochs: 0
+  max_epochs: 1
+  continue_from_stage_id: al8r7cpr
+  continue_from_stage_name: 2stage_mae_semppl+fixmatch_stage2_semppl+fixmatch
+
+stage_name: umap
+datasets:
+  train:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar10
+    num_classes: 10
+    torchvision_args:
+      kind: CIFAR10
+      train: true
+      download: false
+    dataset_wrappers:
+      - kind: subset_wrapper
+        end_index: 128
+    sample_wrappers:
+      - kind: x_transform_wrapper
+        transform:
+          - kind: kd_cifar10_norm
+  test_small:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar10
+    num_classes: 10
+    torchvision_args:
+      kind: CIFAR10
+      train: false
+      download: false
+    dataset_wrappers:
+      - kind: classwise_subset_wrapper
+        end_index: 200
+    x_transform:
+      - kind: kd_cifar10_norm
+model:
+  kind: backbone_head
+  backbone:
+    kind: vit.vit_mae
+    patch_size: 4
+    embedding_dim: 192
+    depth: 12
+    attention_heads: 3
+    is_frozen: true
+    # drop_path_rate: ${vars.drop_path}
+    initializer:
+      checkpoint: last
+      kind: previous_run_initializer
+      model_name: mae_contheads_vit.encoder
+      stage_id: ${vars.continue_from_stage_id}
+      stage_name: ${vars.continue_from_stage_name}
+  head:
+    kind: heads.linear_head
+    nonaffine_batchnorm: true
+    pooling:
+      kind: class_token
+      # kind: mean_patch
+    optim:
+      kind: adamw
+      lr: ${vars.lr}
+      weight_decay: ${vars.weight_decay}
+      betas:
+        - 0.9
+        - ${vars.beta2}
+      schedule:
+        - exclude_last: true
+          kind: cosine_decreasing
+    initializer:
+      kind: trunc_normal_initializer
+      std: 0.01
+trainer:
+  kind: classification_trainer
+  max_epochs: ${vars.max_epochs}
+  effective_batch_size: 128
+  precision: bfloat16
+  log_every_n_epochs: 1
+  loggers:
+    - kind: feature_umap_logger
+      dataset_key: test_small
+      every_n_epochs: ${vars.max_epochs}
+      n_components: 2
+      n_neighbors: 100
+      min_dist: 0.2
+      metric: 'euclidean'
+      extractors:
+        - kind: generic_extractor
+          model_property_path: head.pooling

@@ -23,10 +23,10 @@ class OfflineFeatureLogger(MultiDatasetLogger):
             extractor.register_hooks(model)
             extractor.disable_hooks()
 
-    def _forward(self, batch, model, trainer, train_dataset):
+    def _forward(self, batch, model, trainer, dataset):
         features = {}
         with trainer.autocast_context:
-            trainer.forward(model=model, batch=batch, train_dataset=train_dataset)
+            trainer.forward(model=model, batch=batch, dataset=dataset)
             for extractor in self.extractors:
                 features[str(extractor)] = extractor.extract().cpu()
         batch, _ = batch  # remove ctx
@@ -41,8 +41,9 @@ class OfflineFeatureLogger(MultiDatasetLogger):
             extractor.enable_hooks()
 
         # extract
+        dataset = self.data_container.datasets[self.dataset_key]
         features, labels = self.iterate_over_dataset(
-            forward_fn=partial(self._forward, model=model, trainer=trainer, train_dataset=train_dataset),
+            forward_fn=partial(self._forward, model=model, trainer=trainer, dataset=dataset),
             dataset_key=self.dataset_key,
             dataset_mode=trainer.dataset_mode,
             batch_size=trainer.effective_batch_size,

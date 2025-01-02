@@ -1,11 +1,12 @@
 vars:
+  label_percentage: 0.01
   lr: 0.001
   weight_decay: 0.05
   beta2: 0.999
-  layerwise_lr_decay: 0.65
+  layerwise_lr_decay: 0.75
   warmup_epochs: 5
-  max_epochs: 150
-  randaug_num_ops: 2
+  max_epochs: 100
+  randaug_num_ops: 1
   randaug_magnitude: 9
   randaug_magnitude_std: 0.5
   randaug_apply_op_p: 1
@@ -13,6 +14,8 @@ vars:
   mixup: 0.8
   cutmix: 1.0
   drop_path: 0
+  continue_from_stage_id: ???
+  continue_from_stage_name: 3stage_semppl_stage2_semppl
 
 stage_name: 3stage_mae_semppl_finetuning_stage3_finetuning_1p
 datasets:
@@ -26,10 +29,17 @@ datasets:
       download: false
     dataset_wrappers:
       - kind: classwise_subset_wrapper
-        end_percent: 0.01
+        end_percent: ${vars.label_percentage}
     sample_wrappers:
       - kind: x_transform_wrapper
         transform:
+          - kind: random_horizontal_flip
+          - kind: kd_random_resized_crop
+            size: 32
+            scale:
+              - 0.6
+              - 1.0
+            interpolation: bicubic
           - kind: kd_rand_augment
             num_ops: ${vars.randaug_num_ops}
             magnitude: ${vars.randaug_magnitude}
@@ -90,13 +100,13 @@ model:
     embedding_dim: 192
     depth: 12
     attention_heads: 3
-    drop_path_rate: ${vars.drop_path}
+    # drop_path_rate: ${vars.drop_path}
     initializer:
       checkpoint: last
       kind: previous_run_initializer
       model_name: mae_contheads_vit.target_encoder
-      stage_id: ???
-      stage_name: 3stage_semppl_stage2_semppl_1p
+      stage_id: ${vars.continue_from_stage_id}
+      stage_name: ${vars.continue_from_stage_name}
     optim:
       kind: adamw
       lr: ${vars.lr}
@@ -161,10 +171,10 @@ trainer:
     - kind: checkpoint_logger
       save_latest_optim: false
       save_optim: false
+      every_n_epochs: 50
     - kind: best_model_logger
       every_n_epochs: 1
       metric_key: accuracy1/test/main
-      model_name: backbone_head
     - kind: best_metric_logger
       every_n_epochs: 1
       pattern: accuracy1/train*

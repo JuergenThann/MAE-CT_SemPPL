@@ -14,6 +14,8 @@ vars:
   mixup: 0.8
   cutmix: 1.0
   drop_path: 0
+  continue_from_stage_id: e405ayqa
+  continue_from_stage_name: 5stage_mae_finetuning_fixmatch_semppl_finetuning_stage4_semppl_1p
 
 stage_name: 5stage_mae_finetuning_fixmatch_semppl_finetuning_stage5_finetuning_1p
 datasets:
@@ -103,8 +105,8 @@ model:
       checkpoint: last
       kind: previous_run_initializer
       model_name: mae_contheads_vit.target_encoder
-      stage_id: xwgx2tj0
-      stage_name: 5stage_mae_finetuning_fixmatch_semppl_finetuning_stage4_semppl_1p
+      stage_id: ${vars.continue_from_stage_id}
+      stage_name: ${vars.continue_from_stage_name}
     optim:
       kind: adamw
       lr: ${vars.lr}

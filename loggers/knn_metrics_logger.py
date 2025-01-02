@@ -35,10 +35,10 @@ class KnnMetricsLogger(MultiDatasetLogger):
             extractor.register_hooks(model)
             extractor.disable_hooks()
 
-    def _forward(self, batch, model, trainer, train_dataset):
+    def _forward(self, batch, model, trainer, dataset):
         features = {}
         with trainer.autocast_context:
-            trainer.forward(model=model, batch=batch, train_dataset=train_dataset, **self.forward_kwargs)
+            trainer.forward(model=model, batch=batch, dataset=dataset, **self.forward_kwargs)
             for extractor in self.extractors:
                 features[str(extractor)] = extractor.extract().cpu()
         batch, _ = batch  # remove ctx
@@ -51,9 +51,12 @@ class KnnMetricsLogger(MultiDatasetLogger):
         for extractor in self.extractors:
             extractor.enable_hooks()
 
+        train_dataset = self.data_container.datasets[self.train_dataset_key]
+        test_dataset = self.data_container.datasets[self.test_dataset_key]
+
         # source_dataset foward (this is the "queue" from the online nn_accuracy)
         train_features, train_y = self.iterate_over_dataset(
-            forward_fn=partial(self._forward, model=model, trainer=trainer, train_dataset=train_dataset),
+            forward_fn=partial(self._forward, model=model, trainer=trainer, dataset=train_dataset),
             dataset_key=self.train_dataset_key,
             dataset_mode=trainer.dataset_mode,
             batch_size=trainer.effective_batch_size,
@@ -62,7 +65,7 @@ class KnnMetricsLogger(MultiDatasetLogger):
         )
         # target_dataset forward (this is the "test" dataset from the online nn_accuracy)
         test_features, test_y = self.iterate_over_dataset(
-            forward_fn=partial(self._forward, model=model, trainer=trainer, train_dataset=train_dataset),
+            forward_fn=partial(self._forward, model=model, trainer=trainer, dataset=test_dataset),
             dataset_key=self.test_dataset_key,
             dataset_mode=trainer.dataset_mode,
             batch_size=trainer.effective_batch_size,

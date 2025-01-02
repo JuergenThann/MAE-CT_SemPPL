@@ -6,7 +6,7 @@ vars:
   beta2: 0.999
   layerwise_lr_decay: 0.75
   warmup_epochs: 5
-  max_epochs: 200
+  max_epochs: 100
   min_scale: 0.8
   randaug_num_ops: 1
   randaug_magnitude: 9
@@ -17,10 +17,10 @@ vars:
   mixup: 0.8
   cutmix: 1.0
   supervised_mixup_mode: null
-  unsupervised_mixup_mode: ProbPseudoMixup
+  unsupervised_mixup_mode: null
   drop_path: 0
   target_factor: 0.9999
-  unlabeled_to_labeled_ratio: 3
+  unlabeled_to_labeled_ratio: 5
   threshold: 0.6
   unsupervised_loss_weight: 5
   teacher_pseudo_labeling: true
@@ -273,9 +273,17 @@ trainer:
     - kind: accuracy_logger
       every_n_epochs: 1
       dataset_key: train_unaugmented
+      predict_kwargs:
+        views:
+          - 0
+        dataset_key: train_unaugmented
     - kind: accuracy_logger
       every_n_epochs: 1
       dataset_key: test
+      predict_kwargs:
+        views:
+          - 0
+        dataset_key: test
     - kind: checkpoint_logger
       save_latest_optim: false
       save_optim: false

@@ -8,8 +8,9 @@ from models.vit.mask_generators.random_mask_generator import RandomMaskGenerator
 
 
 class MaeContheadsVit(MaeVit):
-    def __init__(self, contrastive_heads=None, decoder=None, **kwargs):
+    def __init__(self, contrastive_heads=None, decoder=None, predict_head=None, **kwargs):
         super().__init__(decoder=decoder, **kwargs)
+        self.predict_head = predict_head
         if contrastive_heads is not None:
             self.contrastive_heads = create_collection(
                 contrastive_heads,
@@ -29,38 +30,53 @@ class MaeContheadsVit(MaeVit):
         return sub
 
     # noinspection PyMethodOverriding
-    def forward(self, x, mask_generator, batch_size):
+    def forward(self, x, mask_generator, batch_size, views, dataset_key):
         outputs = super().forward(x, mask_generator=mask_generator)
         latent_tokens = outputs["latent_tokens"]
         target_latent_tokens = outputs.get("target_latent_tokens", None)
         outputs.update(self.forward_heads(latent_tokens=latent_tokens, target_latent_tokens=target_latent_tokens,
-                                          batch_size=batch_size))
+                                          batch_size=batch_size, views=views, dataset_key=dataset_key))
         return outputs
 
-    def forward_heads(self, latent_tokens, target_latent_tokens, batch_size):
+    def forward_heads(self, latent_tokens, target_latent_tokens, batch_size, views, dataset_key):
         outputs = {}
-        view_count = int(len(latent_tokens) / batch_size)
+        view_count = len(views)
         for head_name, head in self.contrastive_heads.items():
             outputs[head_name] = {}
             # seperate forward pass because of e.g. BatchNorm
             with kp.named_profile_async(head_name):
-                for view in range(view_count):
-                    start_idx = view * batch_size
-                    end_idx = (view + 1) * batch_size
+                for view_idx in range(view_count):
+                    if (
+                        head.views_to_consume is not None
+                        and (
+                            dataset_key not in head.views_to_consume
+                            or views[view_idx] not in head.views_to_consume[dataset_key]
+                        )
+                    ):
+                        continue
+
+                    start_idx = view_idx * batch_size
+                    end_idx = (view_idx + 1) * batch_size
                     head_outputs = head(
                         x=latent_tokens[start_idx:end_idx],
                         target_x=None if target_latent_tokens is None else target_latent_tokens[start_idx:end_idx],
-                        view=view
+                        view=view_idx
                     )
-                    outputs[head_name][f"view{view}"] = head_outputs
+                    outputs[head_name][f"view{view_idx}"] = head_outputs
         return outputs
 
-    def predict(self, x):
-        outputs = self(x, mask_generator=RandomMaskGenerator(mask_ratio=0.0), batch_size=x.shape[0])
+    def predict(self, x, views, dataset_key):
+        outputs = self(x, mask_generator=RandomMaskGenerator(mask_ratio=0.0), batch_size=x.shape[0], views=views, dataset_key=dataset_key)
+        relevant_heads = {
+            k: v
+            for k, v
+            in self.contrastive_heads.items()
+            if self.predict_head is None or self.predict_head == k
+        }
         flat_outputs = dict({
             k1: v3
             for k1, v1 in outputs.items()
-            if k1 in self.contrastive_heads.keys() and "view0" in v1
+            if k1 in relevant_heads.keys() and "view0" in v1
             for _, v2 in v1.items()
             if len(v2) == 1
             for _, v3 in v2.items()

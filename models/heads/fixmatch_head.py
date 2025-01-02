@@ -34,7 +34,7 @@ class FixmatchHead(EmaLinearHead):
             elif view == 1:
                 raise NotImplementedError
 
-    def get_loss(self, outputs, idx, y):
+    def _get_loss(self, outputs, idx, y):
         if self.training:
             if "view1" in outputs:
                 if self.strong_augmentation_for_labeled:
@@ -70,4 +70,4 @@ class FixmatchHead(EmaLinearHead):
             self.threshold,
             self.unsupervised_loss_weight
         )
-        return dict(total=loss), output
+        return loss, output

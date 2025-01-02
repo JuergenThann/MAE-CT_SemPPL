@@ -57,7 +57,8 @@ class FeatureUmapLogger(DatasetLogger):
                 features[str(extractor)] = extractor.extract().cpu()
         batch, _ = batch  # remove ctx
         classes = ModeWrapper.get_item(mode=trainer.dataset_mode, item="class", batch=batch)
-        return features, classes.clone()
+        indices = ModeWrapper.get_item(mode=trainer.dataset_mode, item="index", batch=batch)
+        return features, classes.clone(), indices.clone()
 
     # noinspection PyMethodOverriding
     def _log(self, update_counter, model, trainer, logger_info_dict, **_):
@@ -66,7 +67,7 @@ class FeatureUmapLogger(DatasetLogger):
             extractor.enable_hooks()
 
         # source_dataset foward (this is the "queue" from the online nn_accuracy)
-        features, y = self.iterate_over_dataset_collated(
+        features, y, idx = self.iterate_over_dataset_collated(
             forward_fn=partial(self._forward, model=model, trainer=trainer),
             update_counter=update_counter
         )
@@ -109,13 +110,13 @@ class FeatureUmapLogger(DatasetLogger):
                     f"{self.dataset_key}"
                     f"{forward_kwargs_str}"
                 )
-                column_headers = [f"d{i}" for i in range(self.n_components)] + ["label"]
+                column_headers = [f"d{i}" for i in range(self.n_components)] + ["label", "idx"]
 
                 dataset = self.data_container.get_dataset(self.dataset_key)
                 if isinstance(dataset.root_dataset, TorchvisionDatasetWrapper):
                     y = list([dataset.root_dataset.dataset.classes[y_] for y_ in y])
 
-                self.writer.add_scatterplot(key, column_headers, [u_ + [y_] for u_, y_ in zip(u.tolist(), y)],
+                self.writer.add_scatterplot(key, column_headers, [u_ + [y_, idx_] for u_, y_, idx_ in zip(u.tolist(), y, idx)],
                                             update_counter)
                 logger_info_dict[key] = u
 

@@ -366,7 +366,7 @@ class SgdTrainer(TrainerBase):
     def output_shape(self):
         raise NotImplementedError
 
-    def forward(self, model, batch, train_dataset):
+    def forward(self, model, batch, dataset):
         raise NotImplementedError
 
     def get_loss(self, outputs, model):

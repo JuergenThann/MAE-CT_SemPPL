@@ -158,6 +158,10 @@ trainer:
     - kind: accuracy_logger
       every_n_epochs: 1
       dataset_key: test
+      predict_kwargs:
+        views:
+          - 0
+        dataset_key: test
     - kind: loss_logger
       every_n_epochs: 1
       dataset_key: test

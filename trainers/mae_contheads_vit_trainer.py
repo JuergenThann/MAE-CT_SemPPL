@@ -1,17 +1,15 @@
+import re
 from functools import partial
 
 import kappaprofiler as kp
 import torch
-import re
-from datasets.transforms import transform_from_kwargs, transform_collate_fn
 
 from datasets.sample_wrappers.multi_view_wrapper import MultiViewWrapper
+from datasets.transforms import transform_from_kwargs, transform_collate_fn
 from schedules import schedule_from_kwargs
 from utils.factory import create_collection
 from .mae_vit_trainer import MaeVitTrainer
 
-from utils.logging_util import log_from_all_ranks
-from distributed.config import get_rank
 
 class MaeContheadsVitTrainer(MaeVitTrainer):
     def __init__(self, transforms=None, transforms_schedule=None, **kwargs):
@@ -29,13 +27,14 @@ class MaeContheadsVitTrainer(MaeVitTrainer):
     def dataset_mode(self):
         return "index x class"
 
-    def forward(self, model, batch, train_dataset, mask_generator=None):
+    def forward(self, model, batch, dataset, mask_generator=None):
         outputs = {}
 
         (idx, x, y), ctx = batch
         outputs["idx"] = idx.to(model.device, non_blocking=True)
         outputs["y"] = y.to(model.device, non_blocking=True)
         outputs["mask_ratio"] = 0.0
+        outputs["dataset_key"] = dataset.dataset_key
 
         n_views_overall = 1
         if isinstance(x, list):
@@ -50,7 +49,6 @@ class MaeContheadsVitTrainer(MaeVitTrainer):
         else:
             shape_groups = [x]
 
-
         view_start_idx = 0
         for i, x in enumerate(shape_groups):
             shape_outputs = {}
@@ -58,9 +56,9 @@ class MaeContheadsVitTrainer(MaeVitTrainer):
             n_views = 1
             if isinstance(x, list):
                 n_views = len(x)
-                train_dataset.n_views = n_views
-                train_dataset.to_concat_view = MultiViewWrapper.to_concat_view
-                train_dataset.to_split_view = partial(MultiViewWrapper.to_split_view, train_dataset)
+                dataset.n_views = n_views
+                dataset.to_concat_view = MultiViewWrapper.to_concat_view
+                dataset.to_split_view = partial(MultiViewWrapper.to_split_view, dataset)
                 # push first to GPU...stacking on CPU takes longer
                 with kp.named_profile_async("to_device"):
                     x = [item.to(model.device, non_blocking=True) for item in x]
@@ -90,9 +88,9 @@ class MaeContheadsVitTrainer(MaeVitTrainer):
                         ]))
                     x = torch.stack(samples)
                 # patch MultiViewWrapper properties
-                train_dataset.n_views = n_views
-                train_dataset.to_concat_view = MultiViewWrapper.to_concat_view
-                train_dataset.to_split_view = partial(MultiViewWrapper.to_split_view, train_dataset)
+                dataset.n_views = n_views
+                dataset.to_concat_view = MultiViewWrapper.to_concat_view
+                dataset.to_split_view = partial(MultiViewWrapper.to_split_view, dataset)
 
             # get batch_size (x.shape is [batch_size, n_views, ...]
             batch_size = len(x)
@@ -104,16 +102,17 @@ class MaeContheadsVitTrainer(MaeVitTrainer):
             # for calculating the loss for logging, a mask generator has to be provided in order to be deterministic
             mask_generator = mask_generator or self.mask_generator
 
+            views = list(range(view_start_idx, view_start_idx + n_views))
             with kp.named_profile_async("forward"):
-                shape_outputs.update(model(x, mask_generator=mask_generator, batch_size=batch_size))
+                shape_outputs.update(model(x, mask_generator=mask_generator, batch_size=batch_size, views=views,
+                                           dataset_key=dataset.dataset_key))
             outputs["mask_ratio"] = outputs["mask_ratio"] + mask_generator.mask_ratio * n_views / n_views_overall
 
             shape_outputs["x"] = x
             if "view0" in ctx.keys():
-                for view_name in [f"view{view_idx}" for view_idx in range(view_start_idx, view_start_idx + n_views)]:
+                for view_name in [f"view{view_idx}" for view_idx in views]:
                     shape_outputs.update({f"ctx.{view_name}.{k}": v for k, v in ctx[view_name].items()})
             shape_outputs.update({f"ctx.{k}": v for k, v in ctx.items() if not re.match(r'view\d+$', k)})
-
 
             view_start_idx += n_views
 
@@ -131,14 +130,18 @@ class MaeContheadsVitTrainer(MaeVitTrainer):
 
         idx = outputs["idx"]
         y = outputs["y"]
+        dataset_key = outputs["dataset_key"]
 
         losses = {}
         loss_outputs = dict(classes=y, **outputs)
 
         total_loss = 0.0
+        view_start_idx = 0
         for i, shape_outputs in enumerate(outputs_):
             mae_losses_, mae_outputs_ = super().get_loss(shape_outputs, model)
             mae_outputs_["latent_tokens"] = shape_outputs["latent_tokens"]
+            n_views = int(mae_outputs_["latent_tokens"].shape[0] / y.shape[0])
+            views = list(range(view_start_idx, view_start_idx + n_views))
 
             transform_postfix = f"/transform{i}" if len(outputs_) > 1 else ""
             loss_outputs.update({f"{k}{transform_postfix}": v for k, v in mae_outputs_.items()})
@@ -151,6 +154,15 @@ class MaeContheadsVitTrainer(MaeVitTrainer):
 
             all_total_losses = []
             for head_name, head in model.contrastive_heads.items():
+                if (
+                    head.views_to_consume is not None
+                    and (
+                        dataset_key not in head.views_to_consume
+                        or not all((v in head.views_to_consume[dataset_key]) for v in views)
+                    )
+                ):
+                    continue
+
                 shape_outputs[head_name].update({k: v for k, v in shape_outputs.items() if k.startswith('ctx.')})
                 shape_outputs[head_name]["shape_idx"] = i
                 head_losses, head_outputs = head.get_loss(shape_outputs[head_name], idx=idx, y=y)
@@ -166,4 +178,5 @@ class MaeContheadsVitTrainer(MaeVitTrainer):
                     loss_outputs[f"{head_name}/{output_name}{transform_postfix}"] = head_output
 
             total_loss += mae_total_loss + sum(all_total_losses)
+            view_start_idx += n_views
         return dict(total=total_loss, **losses), loss_outputs

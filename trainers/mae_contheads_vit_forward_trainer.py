@@ -20,7 +20,7 @@ class MaeContheadsVitForwardTrainer(SgdTrainer):
     def dataset_mode(self):
         return "index x class"
 
-    def forward(self, model, batch, train_dataset):
+    def forward(self, model, batch, dataset):
         (idx, x, y), ctx = batch
         with kp.named_profile_async("to_device"):
             x = x.to(model.device, non_blocking=True)

@@ -58,9 +58,9 @@ datasets:
                 sigma:
                   - 0.1
                   - 2.0
-              # - kind: kd_random_solarize
-              #   p: 0.1
-              #   threshold: 0.5
+              - kind: kd_random_solarize
+                p: 0.1
+                threshold: 0.5
               - kind: kd_cifar100_norm
           - n_views: 2
             transforms:
@@ -85,9 +85,9 @@ datasets:
                 sigma:
                   - 0.1
                   - 2.0
-              # - kind: kd_random_solarize
-              #   p: 0.1
-              #   threshold: 0.5
+              - kind: kd_random_solarize
+                p: 0.1
+                threshold: 0.5
               - kind: kd_cifar100_norm
 model:
   kind: mae_contheads_vit
@@ -120,7 +120,7 @@ model:
       checkpoint: last
       kind: previous_run_initializer
       model_name: semivit.target_encoder
-      stage_id: q5d2nlpy
+      stage_id: x6f0634s
       stage_name: 3stage_mae_finetuning_fixmatch_stage3_fixmatch_10p
   contrastive_heads:
     semppl:
