@@ -6,13 +6,15 @@ vars:
   warmup_epochs: 5
   max_epochs: 100
   batch_size: 128
-  layerwise_lr_decay: 1.0
   label_smoothing: 0.1
   unlabeled_to_labeled_ratio: 7
+  continue_from_stage_id: x8loap89
+  continue_from_stage_name: stage1_mae
 
   # encoder
   lr_encoder: 0.0001
   target_factor_encoder: 0.99
+  layerwise_lr_decay: 1.0
 
   # SemPPL
   lr_semppl: 0.0001
@@ -34,9 +36,9 @@ vars:
   teacher_pseudo_labeling: true
   strong_augmentation_for_labeled: true
   n_views_fixmatch: 2
-  loss_weight_fixmatch: 0.06
+  loss_weight_fixmatch: 0.13
 
-stage_name: 2stage_mae_semppl+fixmatch_stage2_semppl+fixmatch
+stage_name: cifar10_stage2_mae_semppl+fixmatch
 datasets:
   train:
     kind: torchvision_dataset_wrapper
@@ -208,8 +210,8 @@ model:
       checkpoint: last
       kind: previous_run_initializer
       model_name: mae_contheads_vit.encoder
-      stage_id: x8loap89
-      stage_name: stage1_mae
+      stage_id: ${vars.continue_from_stage_id}
+      stage_name: ${vars.continue_from_stage_name}
   contrastive_heads:
     semppl:
       kind: contrastive_heads.semppl_ema_queue_head

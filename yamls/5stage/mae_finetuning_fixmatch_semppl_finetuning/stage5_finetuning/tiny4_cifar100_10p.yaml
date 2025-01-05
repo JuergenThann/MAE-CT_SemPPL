@@ -6,18 +6,19 @@ vars:
   layerwise_lr_decay: 0.75
   warmup_epochs: 5
   max_epochs: 100
+  min_scale: 0.6
   randaug_num_ops: 1
   randaug_magnitude: 9
   randaug_magnitude_std: 0.5
   randaug_apply_op_p: 1
   label_smoothing: 0.1
-  mixup: 0.8
-  cutmix: 1.0
-  drop_path: 0
+  # mixup: 0.8
+  # cutmix: 1.0
+  # drop_path: 0
   continue_from_stage_id: w5xa9v8c
   continue_from_stage_name: 5stage_mae_finetuning_fixmatch_semppl_finetuning_stage4_semppl_1p
 
-stage_name: 5stage_mae_finetuning_fixmatch_semppl_finetuning_stage5_finetuning_10p
+stage_name: cifar100_stage5_mae_finetuning_fixmatch_semppl_finetuning
 datasets:
   train:
     kind: torchvision_dataset_wrapper
@@ -37,7 +38,7 @@ datasets:
           - kind: kd_random_resized_crop
             size: 32
             scale:
-              - 0.6
+              - ${vars.min_scale}
               - 1.0
             interpolation: bicubic
           - kind: kd_rand_augment
@@ -50,15 +51,15 @@ datasets:
           - kind: kd_cifar100_norm
       - kind: label_smoothing_wrapper
         smoothing: ${vars.label_smoothing}
-    collators:
-      - kind: kd_mix_collator
-        mixup_alpha: ${vars.mixup}
-        cutmix_alpha: ${vars.cutmix}
-        mixup_p: 0.5
-        cutmix_p: 0.5
-        apply_mode: batch
-        lamb_mode: batch
-        shuffle_mode: flip
+    # collators:
+    #   - kind: kd_mix_collator
+    #     mixup_alpha: ${vars.mixup}
+    #     cutmix_alpha: ${vars.cutmix}
+    #     mixup_p: 0.5
+    #     cutmix_p: 0.5
+    #     apply_mode: batch
+    #     lamb_mode: batch
+    #     shuffle_mode: flip
   train_unaugmented:
     kind: torchvision_dataset_wrapper
     dataset_identifier: cifar100

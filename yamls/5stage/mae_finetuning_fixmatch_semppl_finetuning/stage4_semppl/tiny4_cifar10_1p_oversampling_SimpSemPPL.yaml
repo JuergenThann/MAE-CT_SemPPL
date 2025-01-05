@@ -7,6 +7,7 @@ vars:
   layerwise_lr_decay: 1.0
   warmup_epochs: 5
   max_epochs: 100
+  min_scale: 0.08
   target_factor: 0.99
   # randaug_num_ops: 2
   # randaug_magnitude: 9
@@ -15,8 +16,10 @@ vars:
   # mixup: 0.8
   # cutmix: 1.0
   # drop_path: 0
+  continue_from_stage_id: d1zsemt7
+  continue_from_stage_name: 3stage_mae_finetuning_fixmatch_stage3_fixmatch_1p
 
-stage_name: 5stage_mae_finetuning_fixmatch_semppl_finetuning_stage4_semppl_1p
+stage_name: cifar10_stage4_mae_finetuning_fixmatch_semppl
 datasets:
   train:
     kind: torchvision_dataset_wrapper
@@ -40,7 +43,7 @@ datasets:
               - interpolation: bicubic
                 kind: kd_random_resized_crop
                 scale:
-                  - 0.08
+                  - ${vars.min_scale}
                   - 1.0
                 size: 32
               - kind: kd_random_horizontal_flip
@@ -67,7 +70,7 @@ datasets:
               - interpolation: bicubic
                 kind: kd_random_resized_crop
                 scale:
-                  - 0.08
+                  - ${vars.min_scale}
                   - 1.0
                 size: 16
               - kind: kd_random_horizontal_flip
@@ -120,8 +123,8 @@ model:
       checkpoint: last
       kind: previous_run_initializer
       model_name: semivit.target_encoder
-      stage_id: d1zsemt7
-      stage_name: 3stage_mae_finetuning_fixmatch_stage3_fixmatch_1p
+      stage_id: ${vars.continue_from_stage_id}
+      stage_name: ${vars.continue_from_stage_name}
   contrastive_heads:
     semppl:
       kind: contrastive_heads.semppl_ema_queue_head

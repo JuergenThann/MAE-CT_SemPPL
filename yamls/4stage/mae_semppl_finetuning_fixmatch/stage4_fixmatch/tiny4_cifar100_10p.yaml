@@ -25,11 +25,11 @@ vars:
   unsupervised_loss_weight: 5
   teacher_pseudo_labeling: true
   strong_augmentation_for_labeled: true
-  continue_from_stage_name: 3stage_mae_semppl_finetuning_stage3_finetuning_10p
-  continue_from_stage_id: kyq9u43e
+  continue_from_stage_name: cifar100_stage3_mae_semppl_finetuning
+  continue_from_stage_id: mggkm6hy
   n_views: 2  # dependent on transforms of multi_view_wrapper
 
-stage_name: 4stage_mae_semppl_finetuning_fixmatch_stage4_fixmatch_10p
+stage_name: cifar100_stage4_mae_semppl_finetuning_fixmatch
 datasets:
   train:
     kind: torchvision_dataset_wrapper

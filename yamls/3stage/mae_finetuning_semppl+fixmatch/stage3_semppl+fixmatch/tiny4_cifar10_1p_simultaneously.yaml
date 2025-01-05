@@ -6,13 +6,15 @@ vars:
   warmup_epochs: 5
   max_epochs: 100
   batch_size: 128
-  layerwise_lr_decay: 1.0
   label_smoothing: 0.1
   unlabeled_to_labeled_ratio: 7
+  continue_from_stage_id: 411uq238
+  continue_from_stage_name: 3stage_mae_finetuning_fixmatch_stage2_finetuning_1p
 
   # encoder
   lr_encoder: 0.0001
   target_factor_encoder: 0.99
+  layerwise_lr_decay: 1.0
 
   # SemPPL
   lr_semppl: 0.0001
@@ -34,11 +36,9 @@ vars:
   teacher_pseudo_labeling: true
   strong_augmentation_for_labeled: true
   n_views_fixmatch: 2
-  loss_weight_fixmatch: 0.06
-  continue_from_stage_id: 411uq238
-  continue_from_stage_name: 3stage_mae_finetuning_fixmatch_stage2_finetuning_1p
+  loss_weight_fixmatch: 0.13
 
-stage_name: 3stage_mae_finetuning_semppl+fixmatch_stage3_semppl+fixmatch
+stage_name: cifar10_stage3_mae_finetuning_semppl+fixmatch
 datasets:
   train:
     kind: torchvision_dataset_wrapper

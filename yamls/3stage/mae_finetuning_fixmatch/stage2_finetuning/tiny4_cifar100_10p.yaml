@@ -6,6 +6,7 @@ vars:
   layerwise_lr_decay: 0.75
   warmup_epochs: 5
   max_epochs: 100
+  min_scale: 0.6
   randaug_num_ops: 1
   randaug_magnitude: 9
   randaug_magnitude_std: 0.5
@@ -14,8 +15,10 @@ vars:
   # mixup: 0.8
   # cutmix: 1.0
   # drop_path: 0
+  continue_from_stage_id: bvi0cxlb
+  continue_from_stage_name: stage1_mae
 
-stage_name: 3stage_mae_finetuning_fixmatch_stage2_finetuning_10p
+stage_name: cifar100_stage2_mae_finetuning
 datasets:
   train:
     kind: torchvision_dataset_wrapper
@@ -28,8 +31,6 @@ datasets:
     dataset_wrappers:
       - kind: classwise_subset_wrapper
         end_percent: ${vars.label_percentage}
-      # - kind: repeat_wrapper
-      #   repetitions: 10
     sample_wrappers:
       - kind: x_transform_wrapper
         transform:
@@ -37,7 +38,7 @@ datasets:
           - kind: kd_random_resized_crop
             size: 32
             scale:
-              - 0.6
+              - ${vars.min_scale}
               - 1.0
             interpolation: bicubic
           - kind: kd_rand_augment
@@ -102,8 +103,8 @@ model:
       checkpoint: last
       kind: previous_run_initializer
       model_name: mae_contheads_vit.encoder
-      stage_id: bvi0cxlb
-      stage_name: stage1_mae
+      stage_id: ${vars.continue_from_stage_id}
+      stage_name: ${vars.continue_from_stage_name}
     optim:
       kind: adamw
       lr: ${vars.lr}

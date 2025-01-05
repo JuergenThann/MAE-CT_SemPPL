@@ -29,7 +29,7 @@ vars:
   continue_from_stage_id: cl7dal68
   n_views: 2  # dependent on transforms of multi_view_wrapper
 
-stage_name: 3stage_mae_semppl_fixmatch_stage3_fixmatch_1p
+stage_name: cifar10_stage3_mae_semppl_fixmatch
 datasets:
   train:
     kind: torchvision_dataset_wrapper

@@ -1,4 +1,4 @@
-stage_name: stage1_mae
+stage_name: cifar100_stage1_mae
 datasets:
   train:
     kind: torchvision_dataset_wrapper
