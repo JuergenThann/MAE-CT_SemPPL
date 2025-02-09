@@ -70,8 +70,8 @@ class SequentialSchedule:
             # sanity checks
             assert schedule_config.start_checkpoint <= schedule_config.end_checkpoint, \
                 "expecting start_checkpoint < end_checkpoint"
-            if end_checkpoint is not None:
-                assert schedule_config.end_checkpoint <= end_checkpoint
+            # if end_checkpoint is not None:
+            #     assert schedule_config.end_checkpoint <= end_checkpoint
 
             cur_start_checkpoint = schedule_config.end_checkpoint
 

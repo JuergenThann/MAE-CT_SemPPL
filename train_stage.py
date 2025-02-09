@@ -29,7 +29,7 @@ from utils.seed import set_seed
 from utils.system_info import log_system_info, get_cli_command
 from utils.version_check import check_versions
 from utils.wandb_utils import init_wandb, finish_wandb
-from datasets.batch_wrappers.prob_pseudo_mix_batch_wrapper import ProbPseudoMixBatchWrapper
+from datasets.batch_wrappers.model_aware_batch_wrapper import ModelAwareBatchWrapper
 
 
 def train_stage(
@@ -93,6 +93,7 @@ def train_stage(
         notes=stage_hp.pop("notes", None),
         group=stage_hp.pop("group", None),
         group_tags=stage_hp.pop("group_tags", None),
+        ignore_stage_name=stage_hp.pop("ignore_stage_name", False)
     )
 
     # flash attention
@@ -108,7 +109,6 @@ def train_stage(
     log_distributed_config()
     log_stage_hp(stage_hp)
     if is_rank0():
-        save_unresolved_hp(cliargs.hp, stage_path_provider.stage_output_path / "hp_unresolved.yaml")
         save_resolved_hp(stage_hp, stage_path_provider.stage_output_path / "hp_resolved.yaml")
     logging.info("------------------")
     logging.info(f"training stage '{stage_path_provider.stage_name}'")
@@ -145,7 +145,7 @@ def train_stage(
             dataset_key=dataset_key,
             **dataset_kwargs
         )
-    data_container = DataContainer(**datasets, num_workers=cliargs.num_workers, config_provider=config_provider)
+    data_container = DataContainer(**datasets, num_workers=cliargs.num_workers or stage_hp.get("num_workers"), config_provider=config_provider)
 
     # init logwriter
     if is_rank0():
@@ -191,7 +191,7 @@ def train_stage(
         for dataset in data_container.datasets.values():
             if dataset.batch_wrappers is not None:
                 for batch_wrapper in dataset.batch_wrappers:
-                    if isinstance(batch_wrapper, ProbPseudoMixBatchWrapper) and batch_wrapper.model_name == model.name:
+                    if isinstance(batch_wrapper, ModelAwareBatchWrapper) and batch_wrapper.model_name == model.name:
                         batch_wrapper.model = model
 
     # train model

@@ -4,7 +4,7 @@ vars:
   weight_decay: 0.05
   beta2: 0.999
   warmup_epochs: 5
-  max_epochs: 100
+  max_epochs: 69
   batch_size: 128
   label_smoothing: 0.1
   unlabeled_to_labeled_ratio: 7
@@ -36,9 +36,11 @@ vars:
   teacher_pseudo_labeling: true
   strong_augmentation_for_labeled: true
   n_views_fixmatch: 2
-  loss_weight_fixmatch: 0.13
+  loss_weight_fixmatch: ${eval:1.0/2/2}
 
+name: CIFAR-100 MAE + SemPPL 10% (aug=SimpSemPPL smallcrop=0.08-1) & FixMatch 10% (SemiViT crop0.8 1op -ProbPseudo lr0.005 tf0.9999) 1:${vars.loss_weight_fixmatch}
 stage_name: cifar100_stage2_mae_semppl+fixmatch
+ignore_stage_name: true
 datasets:
   train:
     kind: torchvision_dataset_wrapper

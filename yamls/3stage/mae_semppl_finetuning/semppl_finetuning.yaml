@@ -1,0 +1,5 @@
+stages:
+  semppl:
+    template: ${yaml:yamls/3stage/mae_semppl_finetuning/stage2_semppl/tiny4_cifar100_10p_oversampling_SimpSemPPL.yaml}
+  finetuning:
+    template: ${yaml:yamls/3stage/mae_semppl_finetuning/stage3_finetuning/tiny4_cifar100_10p.yaml}

@@ -228,6 +228,10 @@ class DataContainer:
         else:
             dl_ctor = DataLoader
 
+        if dataset.batch_wrappers is not None and not all(bw.supports_workers for bw in dataset.batch_wrappers):
+            num_workers = 0
+            persistent_workers = False
+
         # KDScheduledTransform requires num_workers > 0
         if num_workers == 0:
             multi_view_wrapper = dataset.get_wrapper_of_type(KDMultiViewWrapper)

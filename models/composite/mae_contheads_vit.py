@@ -30,7 +30,7 @@ class MaeContheadsVit(MaeVit):
         return sub
 
     # noinspection PyMethodOverriding
-    def forward(self, x, mask_generator, batch_size, views, dataset_key):
+    def forward(self, x, mask_generator, batch_size, views=None, dataset_key=None):
         outputs = super().forward(x, mask_generator=mask_generator)
         latent_tokens = outputs["latent_tokens"]
         target_latent_tokens = outputs.get("target_latent_tokens", None)
@@ -38,9 +38,9 @@ class MaeContheadsVit(MaeVit):
                                           batch_size=batch_size, views=views, dataset_key=dataset_key))
         return outputs
 
-    def forward_heads(self, latent_tokens, target_latent_tokens, batch_size, views, dataset_key):
+    def forward_heads(self, latent_tokens, target_latent_tokens, batch_size, views=None, dataset_key=None):
         outputs = {}
-        view_count = len(views)
+        view_count = len(views) if views is not None else int(len(latent_tokens) / batch_size)
         for head_name, head in self.contrastive_heads.items():
             outputs[head_name] = {}
             # seperate forward pass because of e.g. BatchNorm
@@ -65,7 +65,7 @@ class MaeContheadsVit(MaeVit):
                     outputs[head_name][f"view{view_idx}"] = head_outputs
         return outputs
 
-    def predict(self, x, views, dataset_key):
+    def predict(self, x, views=None, dataset_key=None):
         outputs = self(x, mask_generator=RandomMaskGenerator(mask_ratio=0.0), batch_size=x.shape[0], views=views, dataset_key=dataset_key)
         relevant_heads = {
             k: v

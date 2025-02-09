@@ -28,6 +28,7 @@ def init_wandb(
         notes: str,
         group: str,
         group_tags: dict,
+        ignore_stage_name: bool
 ):
     logging.info("------------------")
     logging.info(f"initializing wandb (mode={wandb_config.mode})")
@@ -54,7 +55,7 @@ def init_wandb(
         wandb.login(host=wandb_config.host)
         logging.info(f"logged into wandb (host={wandb_config.host})")
         name = run_name or "None"
-        if stage_path_provider.stage_name != "default_stage":
+        if not ignore_stage_name and stage_path_provider.stage_name != "default_stage":
             name += f"/{stage_path_provider.stage_name}"
         wandb_id = resume_id or stage_path_provider.stage_id
         # can't group by tags -> with group tags you can (by adding it as a field to the config)

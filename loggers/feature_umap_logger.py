@@ -13,6 +13,7 @@ from utils.factory import create_collection
 from utils.formatting_util import dict_to_string
 from utils.object_from_kwargs import objects_from_kwargs
 from datasets.torchvision_dataset_wrapper import TorchvisionDatasetWrapper
+from itertools import compress
 
 import numpy as np
 import umap
@@ -27,8 +28,12 @@ class FeatureUmapLogger(DatasetLogger):
             min_dist=0.1,
             metric='euclidean',
             forward_kwargs=None,
+            num_samples_to_render=None,
+            classes_to_render=None,
+            class_names_to_render=None,
             **kwargs,
     ):
+        assert classes_to_render is None or class_names_to_render is None
         super().__init__(**kwargs)
         self.extractors = create_collection(extractors, extractor_from_kwargs)
         self.forward_kwargs = objects_from_kwargs(forward_kwargs)
@@ -36,6 +41,9 @@ class FeatureUmapLogger(DatasetLogger):
         self.n_neighbors = n_neighbors
         self.min_dist = min_dist
         self.metric = metric
+        self.num_samples_to_render = num_samples_to_render
+        self.class_names_to_render = class_names_to_render
+        self.classes_to_render = classes_to_render
 
     def get_dataset_mode(self, trainer):
         return trainer.dataset_mode
@@ -99,7 +107,7 @@ class FeatureUmapLogger(DatasetLogger):
 
                 mean = u.mean(dim=0)
                 std = u.std(dim=0) + 1e-5
-                u = (u - mean) / std
+                u = ((u - mean) / std).tolist()
 
                 forward_kwargs_str = f"/{dict_to_string(self.forward_kwargs)}" if len(self.forward_kwargs) > 0 else ""
                 feature_key_bn = f"{feature_key}-batchnorm" if batch_normalize else feature_key
@@ -112,11 +120,38 @@ class FeatureUmapLogger(DatasetLogger):
                 )
                 column_headers = [f"d{i}" for i in range(self.n_components)] + ["label", "idx"]
 
+                if self.classes_to_render is not None:
+                    class_mask = [y_ in self.classes_to_render for y_ in y]
+                    y = list(compress(y, class_mask))
+                    u = list(compress(u, class_mask))
+                    idx = list(compress(idx, class_mask))
+
                 dataset = self.data_container.get_dataset(self.dataset_key)
                 if isinstance(dataset.root_dataset, TorchvisionDatasetWrapper):
                     y = list([dataset.root_dataset.dataset.classes[y_] for y_ in y])
+                    if self.class_names_to_render is not None:
+                        class_name_mask = list([y_ in self.class_names_to_render for y_ in y])
+                        y = list(compress(y, class_name_mask))
+                        u = list(compress(u, class_name_mask))
+                        idx = list(compress(idx, class_name_mask))
+                else:
+                    assert self.class_names_to_render is None, 'class_names_to_render is only supported for TorchvisionDatasetWrapper'
 
-                self.writer.add_scatterplot(key, column_headers, [u_ + [y_, idx_] for u_, y_, idx_ in zip(u.tolist(), y, idx)],
+                if self.num_samples_to_render is not None:
+                    y_old = y
+                    u_old = u
+                    y = []
+                    u = []
+                    counter = {y_: 0 for y_ in set(y_old)}
+                    for i in range(len(y_old)):
+                        y_ = y_old[i]
+                        if counter[y_] >= self.num_samples_to_render:
+                            continue
+                        counter[y_] += 1
+                        u.append(u_old[i])
+                        y.append(y_)
+
+                self.writer.add_scatterplot(key, column_headers, [u_ + [y_, idx_] for u_, y_, idx_ in zip(u, y, idx)],
                                             update_counter)
                 logger_info_dict[key] = u
 

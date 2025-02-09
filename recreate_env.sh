@@ -1,7 +1,7 @@
 conda deactivate && \
 conda env remove -n thann_maect -y && \
 conda clean --all -y && \
-conda env create -f environment_thann_20241013_part1.yml -y && \
+conda env create -f environment_thann_20241013_part1.yml && \
 conda clean -i -t -c -l -y && \
 conda activate thann_maect && \
 conda env update -f environment_thann_20241013_part2.yml && \

@@ -16,10 +16,12 @@ vars:
   # mixup: 0.8
   # cutmix: 1.0
   # drop_path: 0
-  continue_from_stage_id: bvi0cxlb
-  continue_from_stage_name: stage1_mae
+  continue_from_stage_id: bymoyvsh
+  continue_from_stage_name: cifar100_stage1_mae
 
+name: CIFAR-100 MAE + SemPPL 10% (aug=SimpSemPPL smallcrop=0.08-1)
 stage_name: cifar100_stage2_mae_semppl
+ignore_stage_name: true
 datasets:
   train:
     kind: torchvision_dataset_wrapper
@@ -61,9 +63,9 @@ datasets:
                 sigma:
                   - 0.1
                   - 2.0
-              - kind: kd_random_solarize
-                p: 0.1
-                threshold: 0.5
+              # - kind: kd_random_solarize
+              #   p: 0.1
+              #   threshold: 0.5
               - kind: kd_cifar100_norm
           - n_views: 2
             transforms:
@@ -88,9 +90,9 @@ datasets:
                 sigma:
                   - 0.1
                   - 2.0
-              - kind: kd_random_solarize
-                p: 0.1
-                threshold: 0.5
+              # - kind: kd_random_solarize
+              #   p: 0.1
+              #   threshold: 0.5
               - kind: kd_cifar100_norm
 model:
   kind: mae_contheads_vit

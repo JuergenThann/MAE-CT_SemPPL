@@ -11,6 +11,7 @@ class CliArgs:
     hp: str
     accelerator: str
     devices: str
+    wait_for_devices: bool
     num_workers: int
     wandb_mode: str
     wandb_config: str
@@ -63,6 +64,7 @@ def parse_run_cli_args() -> CliArgs:
     parser.add_argument("--hp", type=_hp, required=True)
     parser.add_argument("--accelerator", type=str, default="gpu", choices=["cpu", "gpu"])
     parser.add_argument("--devices", type=_devices)
+    parser.add_argument("--wait_for_devices", action="store_true")
     parser.add_argument("--name", type=str)
     # dataloading
     parser.add_argument("--num_workers", type=int)

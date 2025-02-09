@@ -9,4 +9,3 @@ dependencies:
   - pytorch=2.0.1
   - pytorch-cuda=11.7
   - torchvision=0.15.2
-prefix: /system/apps/studentenv/thann/thann_maect

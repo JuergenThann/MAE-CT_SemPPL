@@ -13,12 +13,19 @@ from distributed.config import barrier, get_rank, get_local_rank, get_world_size
 from distributed.run import run_single_or_multiprocess, run_managed
 from providers.stage_path_provider import StagePathProvider
 from train_stage import train_stage
-from utils.kappaconfig.util import get_run_hp
+from utils.kappaconfig.util import get_run_hp, save_unresolved_hp
 from utils.kappaconfig.util import get_stage_hp_list, get_max_batch_sizes_from_cli
 from utils.kappaconfig.util import get_stage_ids_from_cli
 from utils.logging_util import add_global_handlers, log_from_all_ranks
 from utils.pytorch_cuda_timing import cuda_start_event, cuda_end_event
 from utils.version_check import check_versions
+import time
+from pathlib import Path
+import atexit
+import platform
+import tempfile
+from signal import signal, SIGQUIT, SIGABRT, SIGTERM
+from functools import partial
 
 
 def main_single(device):
@@ -32,6 +39,16 @@ def main_single(device):
 
     # CUDA_LAUNCH_BLOCKING=1 for debugging
     # os.environ["CUDA_LAUNCH_BLOCKING"] = str(1)
+
+    # save hp file to temporary file, so it cannot be changed anymore
+    temp_dir = tempfile.gettempdir()
+    temp_hp_path = os.path.join(temp_dir, f'hp_unresolved_{os.getpid()}.yaml')
+    if is_rank0():
+        save_unresolved_hp(cli_args.hp, temp_hp_path)
+        for s in [SIGQUIT, SIGABRT, SIGTERM]:
+            signal(s, partial(os.remove, path=temp_hp_path))
+        atexit.register(os.remove, temp_hp_path)
+    barrier()
 
     # cudnn
     if cli_args.accelerator == "gpu":
@@ -54,10 +71,10 @@ def main_single(device):
         kp.setup_async_as_sync()
 
     # parse stages
-    run_hp = get_run_hp(cli_args.hp)
+    run_hp = get_run_hp(temp_hp_path)
     stage_names, stage_hp_list = get_stage_hp_list(
         run_hp,
-        template_path="yamls/templates",
+        template_path=".",
         testrun=cli_args.testrun,
         minmodelrun=cli_args.minmodelrun,
         mindatarun=cli_args.mindatarun,
@@ -77,6 +94,50 @@ def main_single(device):
         assert stage_path_provider.stage_output_path_exists, \
             f"invalid stage_name ({stage_name}) or invalid stage_id ({stage_id})"
 
+    device_id = os.environ["CUDA_VISIBLE_DEVICES"]
+    hostname = platform.uname().node
+    job_name = f'{hostname}_dev{device_id}.lock'
+    job_file = Path(static_config.output_path, '.jobs', job_name)
+    if not job_file.parent.exists():
+        job_file.parent.mkdir(parents=True)
+    if job_file.exists():
+        waited_for_device = False
+        with job_file.open('r') as fs:
+            job_ids = [int(i) for i in fs.read().strip().split(',')]
+        last_job_id = job_ids[-1]
+        current_job_id = job_ids[0]
+        job_id = last_job_id + 1
+        job_ids.append(job_id)
+        with job_file.open('w') as fs:
+            fs.write(','.join(str(i) for i in job_ids))
+    else:
+        waited_for_device = True
+        current_job_id = last_job_id = job_id = 1
+        job_ids = [job_id]
+
+    with job_file.open('w') as fs:
+        fs.write(','.join(str(i) for i in job_ids))
+
+    for s in [SIGQUIT, SIGABRT, SIGTERM]:
+        signal(s, partial(finalize_job_after_signal, job_file=job_file, job_id=job_id))
+    atexit.register(finalize_job, job_file, job_id)
+
+    if cli_args.wait_for_devices and cli_args.accelerator == 'gpu' and not waited_for_device:
+        with log_from_all_ranks():
+            logging.info(f"{os.getpid()}: {job_id=}, {current_job_id=}, {last_job_id=}...")
+            logging.info(f"{os.getpid()}: Waiting for other processes on device {device_id} to finish...")
+
+        while not waited_for_device:
+            time.sleep(60)
+            with job_file.open('r') as fs:
+                job_ids = [int(i) for i in fs.read().strip().split(',')]
+            logging.info(f"{os.getpid()}: {device_id=}, {job_id=}, {job_ids=}...")
+            if job_id == job_ids[0]:
+                waited_for_device = True
+
+        with log_from_all_ranks():
+            logging.info(f"{os.getpid()}: Device ({device_id}) is now ready.")
+
     # TODO the logging for this is not ideal
     for i, (stage_name, stage_hp) in enumerate(zip(stage_names, stage_hp_list)):
         # run only specific stage (defined by cli arg)
@@ -94,6 +155,18 @@ def main_single(device):
         # train stages
         if stage_name is None:
             stage_name = stage_hp.get("stage_name", "default_stage")
+
+        # save copy of hp in case it changes while waiting for GPU
+        stage_path_provider = StagePathProvider(
+            output_path=static_config.output_path,
+            model_path=static_config.model_path,
+            stage_name=stage_name,
+            stage_id=stage_id,
+        )
+        if is_rank0():
+            save_unresolved_hp(temp_hp_path, stage_path_provider.stage_output_path / "hp_unresolved.yaml")
+        barrier()
+
         max_batch_size = max_batch_sizes[stage_name] if stage_name in max_batch_sizes else None
         train_stage(
             stage_hp=stage_hp,
@@ -107,6 +180,24 @@ def main_single(device):
         )
         # remember stage_id for next stages
         stage_ids[stage_name] = stage_id
+
+
+def finalize_job_after_signal(signum, frame, job_file, job_id):
+    finalize_job(job_file, job_id)
+
+
+def finalize_job(job_file, job_id):
+    if job_file.exists():
+        with job_file.open('r') as fs:
+            job_ids = [int(i) for i in fs.read().strip().split(',')]
+
+        if job_id in job_ids:
+            job_ids.remove(job_id)
+            if len(job_ids) == 0:
+                job_file.unlink()
+            else:
+                with job_file.open('w') as fs:
+                    fs.write(','.join(str(i) for i in job_ids))
 
 
 def main():

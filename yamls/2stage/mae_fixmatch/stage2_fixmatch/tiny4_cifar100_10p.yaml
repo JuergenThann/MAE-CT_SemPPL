@@ -1,8 +1,12 @@
 vars:
+  batch_size: 96
   label_percentage: 0.1
+  lr: 0.005
   weight_decay: 0.05
   beta2: 0.999
+  layerwise_lr_decay: 0.75
   warmup_epochs: 5
+  max_epochs: 100
   min_scale: 0.8
   randaug_num_ops: 1
   randaug_magnitude: 9
@@ -13,28 +17,19 @@ vars:
   mixup: 0.8
   cutmix: 1.0
   supervised_mixup_mode: null
-  unsupervised_mixup_mode: null
+  unsupervised_mixup_mode: ProbPseudoMixup
   drop_path: 0
+  target_factor: 0.9999
   unlabeled_to_labeled_ratio: 5
   threshold: 0.6
   unsupervised_loss_weight: 5
   teacher_pseudo_labeling: true
   strong_augmentation_for_labeled: true
-  continue_from_stage_name: cifar100_stage2_mae_finetuning
-  continue_from_stage_id: 99e8ujyo
+  continue_from_stage_name: stage1_mae
+  continue_from_stage_id: bvi0cxlb
   n_views: 2  # dependent on transforms of multi_view_wrapper
-  batch_size: 384
-  max_epochs: 250
-  max_epochs_schedule: 250
-  lr: 0.005
-  target_factor: 0.9999
-  layerwise_lr_decay: 0.75
 
-name: CIFAR-100 MAE + Fine-Tuning 10% (MAE 1op crop0.8 nodroppath lr+ lwlrd+ 150ep) + FixMatch 10% (SemiViT crop=0.8 1op -ProbPseudo lr0.005 lwlrd0.75 tf0.9999 250ep)
-
-stage_name: cifar100_stage3_mae_finetuning_fixmatch
-ignore_stage_name: true
-num_workers: 1
+stage_name: cifar100_stage2_mae_fixmatch
 datasets:
   train:
     kind: torchvision_dataset_wrapper
@@ -164,12 +159,10 @@ model:
           kind: linear_increasing
         - exclude_last: true
           kind: cosine_decreasing
-          end_checkpoint:
-            epoch: ${vars.max_epochs_schedule}
     initializer:
       checkpoint: last
       kind: previous_run_initializer
-      model_name: backbone_head.backbone
+      model_name: mae_contheads_vit.encoder
       stage_id: ${vars.continue_from_stage_id}
       stage_name: ${vars.continue_from_stage_name}
   contrastive_heads:
@@ -210,14 +203,9 @@ model:
             kind: linear_increasing
           - exclude_last: true
             kind: cosine_decreasing
-            end_checkpoint:
-              epoch: ${vars.max_epochs_schedule}
       initializer:
-        checkpoint: last
-        kind: previous_run_initializer
-        model_name: backbone_head.head
-        stage_id: ${vars.continue_from_stage_id}
-        stage_name: ${vars.continue_from_stage_name}
+        kind: trunc_normal_initializer
+        std: 0.01
 trainer:
   kind: mae_contheads_vit_trainer
   max_epochs: ${vars.max_epochs}

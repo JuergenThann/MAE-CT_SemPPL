@@ -47,9 +47,11 @@ class _DataLoaderWrapperIter:
 
         for batch_wrapper in self.batch_wrappers:
             if return_ctx:
-                batch, ctx = batch_wrapper(batch=batch, dataset_mode=self.dataloader.dataset.mode, ctx=ctx)
+                batch, ctx = batch_wrapper(batch=batch, dataset_mode=self.dataloader.dataset.mode,
+                                           dataset_key=self.dataloader.dataset.dataset_key, ctx=ctx)
             else:
-                batch = batch_wrapper(batch=batch, dataset_mode=self.dataloader.dataset.mode)
+                batch = batch_wrapper(batch=batch, dataset_mode=self.dataloader.dataset.mode,
+                                      dataset_key=self.dataloader.dataset.dataset_key)
 
         if return_ctx:
             return batch, ctx

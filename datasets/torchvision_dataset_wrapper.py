@@ -73,6 +73,10 @@ class TorchvisionDatasetWrapper(XTransformDatasetBase):
     def targets(self):
         return self.dataset.targets
 
+    @property
+    def class_names(self):
+        return self.dataset.classes
+
     # region classification
     @property
     def n_classes(self):

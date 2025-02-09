@@ -1,8 +1,12 @@
 vars:
-  label_percentage: 0.1
+  batch_size: 96
+  label_percentage: 0.01
+  lr: 0.005
   weight_decay: 0.05
   beta2: 0.999
+  layerwise_lr_decay: 0.75
   warmup_epochs: 5
+  max_epochs: 100
   min_scale: 0.8
   randaug_num_ops: 1
   randaug_magnitude: 9
@@ -13,35 +17,26 @@ vars:
   mixup: 0.8
   cutmix: 1.0
   supervised_mixup_mode: null
-  unsupervised_mixup_mode: null
+  unsupervised_mixup_mode: ProbPseudoMixup
   drop_path: 0
+  target_factor: 0.9999
   unlabeled_to_labeled_ratio: 5
   threshold: 0.6
   unsupervised_loss_weight: 5
   teacher_pseudo_labeling: true
   strong_augmentation_for_labeled: true
-  continue_from_stage_name: cifar100_stage2_mae_finetuning
-  continue_from_stage_id: 99e8ujyo
+  continue_from_stage_name: stage1_mae
+  continue_from_stage_id: x8loap89
   n_views: 2  # dependent on transforms of multi_view_wrapper
-  batch_size: 384
-  max_epochs: 250
-  max_epochs_schedule: 250
-  lr: 0.005
-  target_factor: 0.9999
-  layerwise_lr_decay: 0.75
 
-name: CIFAR-100 MAE + Fine-Tuning 10% (MAE 1op crop0.8 nodroppath lr+ lwlrd+ 150ep) + FixMatch 10% (SemiViT crop=0.8 1op -ProbPseudo lr0.005 lwlrd0.75 tf0.9999 250ep)
-
-stage_name: cifar100_stage3_mae_finetuning_fixmatch
-ignore_stage_name: true
-num_workers: 1
+stage_name: cifar10_stage2_mae_fixmatch
 datasets:
   train:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar100
-    num_classes: 100
+    dataset_identifier: cifar10
+    num_classes: 10
     torchvision_args:
-      kind: CIFAR100
+      kind: CIFAR10
       train: true
       download: false
     dataset_wrappers:
@@ -66,7 +61,7 @@ datasets:
               brightness: ${vars.color_jitter}
               contrast: ${vars.color_jitter}
               saturation: ${vars.color_jitter}
-            - kind: kd_cifar100_norm
+            - kind: kd_cifar10_norm
           - - interpolation: bicubic
               kind: kd_random_resized_crop
               scale:
@@ -81,12 +76,12 @@ datasets:
               apply_op_p: ${vars.randaug_apply_op_p}
               interpolation: bicubic
               fill_color: [ 125, 123, 114 ]
-            - kind: kd_cifar100_norm
+            - kind: kd_cifar10_norm
     batch_wrappers:
       - kind: prob_pseudo_mix_batch_wrapper
         model_name: semivit
         prediction_head_name: fixmatch
-        n_classes: 100
+        n_classes: 10
         weak_augmentation_index: 0
         label_smoothing: ${vars.label_smoothing}
         mixup_alpha: ${vars.mixup}
@@ -98,34 +93,37 @@ datasets:
         unsupervised_mixup_mode: ${vars.unsupervised_mixup_mode}
   train_unaugmented:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar100
-    num_classes: 100
+    dataset_identifier: cifar10
+    num_classes: 10
     torchvision_args:
-      kind: CIFAR100
+      kind: CIFAR10
       train: true
       download: false
     x_transform:
-      - kind: kd_cifar100_norm
+      - kind: kd_cifar10_norm
   test:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar100
-    num_classes: 100
+    dataset_identifier: cifar10
+    num_classes: 10
     torchvision_args:
-      kind: CIFAR100
+      kind: CIFAR10
       train: false
       download: false
     x_transform:
-      - kind: kd_cifar100_norm
+      - kind: kd_cifar10_norm
   test_small:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar100
-    num_classes: 100
+    dataset_identifier: cifar10
+    num_classes: 10
     torchvision_args:
-      kind: CIFAR100
+      kind: CIFAR10
       train: false
       download: false
+    dataset_wrappers:
+      - kind: classwise_subset_wrapper
+        end_index: 200
     x_transform:
-      - kind: kd_cifar100_norm
+      - kind: kd_cifar10_norm
 model:
   kind: mae_contheads_vit
   name: semivit
@@ -164,12 +162,10 @@ model:
           kind: linear_increasing
         - exclude_last: true
           kind: cosine_decreasing
-          end_checkpoint:
-            epoch: ${vars.max_epochs_schedule}
     initializer:
       checkpoint: last
       kind: previous_run_initializer
-      model_name: backbone_head.backbone
+      model_name: mae_contheads_vit.encoder
       stage_id: ${vars.continue_from_stage_id}
       stage_name: ${vars.continue_from_stage_name}
   contrastive_heads:
@@ -177,7 +173,7 @@ model:
       kind: heads.fixmatch_head
       target_factor: ${vars.target_factor}
       nonaffine_batchnorm: true
-      output_shape: 100
+      output_shape: 10
       threshold: ${vars.threshold}
       unsupervised_loss_weight: ${vars.unsupervised_loss_weight}
       teacher_pseudo_labeling: ${vars.teacher_pseudo_labeling}
@@ -210,14 +206,9 @@ model:
             kind: linear_increasing
           - exclude_last: true
             kind: cosine_decreasing
-            end_checkpoint:
-              epoch: ${vars.max_epochs_schedule}
       initializer:
-        checkpoint: last
-        kind: previous_run_initializer
-        model_name: backbone_head.head
-        stage_id: ${vars.continue_from_stage_id}
-        stage_name: ${vars.continue_from_stage_name}
+        kind: trunc_normal_initializer
+        std: 0.01
 trainer:
   kind: mae_contheads_vit_trainer
   max_epochs: ${vars.max_epochs}

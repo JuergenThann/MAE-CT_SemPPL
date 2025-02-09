@@ -1,12 +1,8 @@
 vars:
-  batch_size: 96
   label_percentage: 0.1
-  lr: 0.005
   weight_decay: 0.05
   beta2: 0.999
-  layerwise_lr_decay: 0.75
   warmup_epochs: 5
-  max_epochs: 100
   min_scale: 0.8
   randaug_num_ops: 1
   randaug_magnitude: 9
@@ -19,17 +15,26 @@ vars:
   supervised_mixup_mode: null
   unsupervised_mixup_mode: null
   drop_path: 0
-  target_factor: 0.9999
   unlabeled_to_labeled_ratio: 5
   threshold: 0.6
   unsupervised_loss_weight: 5
   teacher_pseudo_labeling: true
   strong_augmentation_for_labeled: true
-  continue_from_stage_name: 3stage_semppl_stage2_semppl
-  continue_from_stage_id: g9n8j0o5
+  continue_from_stage_name: cifar100_stage2_mae_semppl
+  continue_from_stage_id: s77n3z9a
   n_views: 2  # dependent on transforms of multi_view_wrapper
+  batch_size: 384
+  max_epochs: 250
+  max_epochs_schedule: 250
+  lr: 0.005
+  target_factor: 0.9999
+  layerwise_lr_decay: 0.75
+
+name: CIFAR-100 MAE + SemPPL 10% (aug=SimpSemPPL smallcrop=0.08-1) + FixMatch 10% (SemiViT crop=0.8 1op -ProbPseudo lr0.005 lwlrd0.75 tf0.9999 250ep)
 
 stage_name: cifar100_stage3_mae_semppl_fixmatch
+ignore_stage_name: true
+num_workers: 1
 datasets:
   train:
     kind: torchvision_dataset_wrapper
@@ -159,6 +164,8 @@ model:
           kind: linear_increasing
         - exclude_last: true
           kind: cosine_decreasing
+          end_checkpoint:
+            epoch: ${vars.max_epochs_schedule}
     initializer:
       checkpoint: last
       kind: previous_run_initializer
@@ -203,6 +210,8 @@ model:
             kind: linear_increasing
           - exclude_last: true
             kind: cosine_decreasing
+            end_checkpoint:
+              epoch: ${vars.max_epochs_schedule}
       initializer:
         kind: trunc_normal_initializer
         std: 0.01

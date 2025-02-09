@@ -1,15 +1,14 @@
 import numpy as np
 import torch
 
-from kappadata.collators.base.kd_single_collator import KDSingleCollator
 from kappadata.wrappers.mode_wrapper import ModeWrapper
 from torch.nn.functional import softmax
 from kappadata.utils.one_hot import to_one_hot_matrix
-from multiprocessing import Queue
+from .model_aware_batch_wrapper import ModelAwareBatchWrapper
 
 
 # modified copy of kappadata kd_mix_collator
-class ProbPseudoMixBatchWrapper:
+class ProbPseudoMixBatchWrapper(ModelAwareBatchWrapper):
     """
     apply_mode:
     - "batch": apply either all samples in the batch or don't apply
@@ -25,7 +24,6 @@ class ProbPseudoMixBatchWrapper:
 
     def __init__(
             self,
-            model_name: str,
             teacher_pseudo_labeling: bool = True,
             prediction_head_name: str = None,
             mixup_alpha: float = None,
@@ -74,8 +72,6 @@ class ProbPseudoMixBatchWrapper:
         self.shuffle_mode = shuffle_mode
         self.seed = seed
         self.rng = np.random.default_rng(seed=seed)
-        self.model = None
-        self.model_name = model_name
         self.prediction_head_name = prediction_head_name
         self.label_smoothing = label_smoothing
         self.n_classes = n_classes
@@ -88,11 +84,9 @@ class ProbPseudoMixBatchWrapper:
     def total_p(self) -> float:
         return self.mixup_p + self.cutmix_p
 
-    def __call__(self, **kwargs):
+    def __call__(self, batch, dataset_mode, **kwargs):
         assert self.model is not None
 
-        batch = kwargs['batch']
-        dataset_mode = kwargs['dataset_mode']
         ctx = kwargs.get('ctx')
         return_ctx = ctx is not None
 
@@ -126,7 +120,7 @@ class ProbPseudoMixBatchWrapper:
         gt_u = gt[unlabeled_map]
 
         if self.supervised_mixup_mode == 'Mixup':
-            x_l, y_l, use_cutmix_l, lamb_l, confidence_l, dominant_gt_l = self.apply_mixup(x_l, y_l, gt_l, None)
+            x_l, y_l, use_cutmix_l, lamb_l, confidence_l, dominant_gt_l = self.apply_mixup(x_l, y_l, gt_l, None, self.supervised_mixup_mode)
         else:
             use_cutmix_l = torch.full(size=(num_labeled,), fill_value=False)
             lamb_l = torch.full(size=(num_labeled,), fill_value=torch.nan, dtype=x.dtype)
@@ -134,17 +128,15 @@ class ProbPseudoMixBatchWrapper:
             dominant_gt_l = gt_l
 
         if self.unsupervised_mixup_mode is not None:
-            confidence, y_pseudo = self.get_pseudo_labels(x_pseudo)
-            y_pseudo = self.apply_label_smoothing(y_pseudo[unlabeled_map], x.dtype)
+            confidence_u, y_pseudo = self.get_pseudo_labels(x_pseudo[unlabeled_map])
+            y_pseudo = self.apply_label_smoothing(y_pseudo, x.dtype)
             if self.unsupervised_mixup_mode == 'Mixup':
-                x_u, y_u, use_cutmix_u, lamb_u, confidence_u, dominant_gt_u = self.apply_mixup(x_u, y_pseudo, gt_u, None)
-                # transfered "bug"(?) from original code, see
+                # transfered from original code, see
                 # https://github.com/amazon-science/semi-vit/blob/4785cbc7c7e642649eb202c4be2342fb1b87ee3d/engine_semi.py#L113
                 # when normal mixup is used for pseudo labeled samples, the confidence mask is not updated
-                confidence_u = confidence
+                x_u, y_u, use_cutmix_u, lamb_u, _, dominant_gt_u = self.apply_mixup(x_u, y_pseudo, gt_u, confidence_u, self.unsupervised_mixup_mode)
             elif self.unsupervised_mixup_mode == 'ProbPseudoMixup':
-                confidence_u = confidence[unlabeled_map]
-                x_u, y_u, use_cutmix_u, lamb_u, confidence_u, dominant_gt_u = self.apply_mixup(x_u, y_pseudo, gt_u, confidence_u)
+                x_u, y_u, use_cutmix_u, lamb_u, confidence_u, dominant_gt_u = self.apply_mixup(x_u, y_pseudo, gt_u, confidence_u, self.unsupervised_mixup_mode)
             else:
                 raise NotImplementedError
         else:
@@ -221,14 +213,14 @@ class ProbPseudoMixBatchWrapper:
             probs = self.model.predict(x_on_model_device)
             if self.prediction_head_name is not None:
                 probs = probs[self.prediction_head_name]
-            probs = probs.cpu()
+            probs = probs.detach().cpu()
         if training:
             self.model.train()
         probs = softmax(probs, dim=-1)
         confidence, y_pseudo = probs.max(dim=-1)
         return confidence, y_pseudo
 
-    def apply_mixup(self, x, y, gt, confidence):
+    def apply_mixup(self, x, y, gt, confidence, mixup_mode):
         batch_size = len(x)
 
         x2_indices, permutation = self.shuffle(item=torch.arange(batch_size), permutation=None)
@@ -236,7 +228,8 @@ class ProbPseudoMixBatchWrapper:
 
         # sample parameters (lamb, bbox)
         bbox = None
-        if confidence is not None:
+        if mixup_mode == 'ProbPseudoMixup':
+            assert confidence is not None
             use_cutmix = torch.full(size=(batch_size, ), fill_value=False)
             confidence2, _ = self.shuffle(item=confidence, permutation=permutation)
             lamb = confidence / (confidence + confidence2)
@@ -312,3 +305,7 @@ class ProbPseudoMixBatchWrapper:
                 permutation = self.rng.permutation(len(item))
             return item[permutation], permutation
         raise NotImplementedError
+
+    @property
+    def supports_workers(self):
+        return self.unsupervised_mixup_mode is None

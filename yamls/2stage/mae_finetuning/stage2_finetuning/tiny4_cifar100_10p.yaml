@@ -6,8 +6,8 @@ vars:
   beta2: 0.999
   layerwise_lr_decay: 0.75
   batch_size: 512
-  warmup_epochs: 20
-  max_epochs: 150
+  warmup_epochs: 30
+  max_epochs: 225
   min_scale: 0.8
   randaug_num_ops: 1
   randaug_magnitude: 9
@@ -20,7 +20,7 @@ vars:
   continue_from_stage_id: bymoyvsh
   continue_from_stage_name: cifar100_stage1_mae
 
-name: CIFAR-100 MAE + Fine-Tuning 10% (MAE 1op crop0.8 nodroppath lr+ lwlrd+ 150ep)
+name: CIFAR-100 MAE + Fine-Tuning 10% (MAE 1op crop0.8 nodroppath lr+ lwlrd+ 225ep)
 stage_name: cifar100_stage2_mae_finetuning
 ignore_stage_name: true
 num_workers: 1

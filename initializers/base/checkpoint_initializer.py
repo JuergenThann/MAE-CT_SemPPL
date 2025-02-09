@@ -12,7 +12,7 @@ from utils.factory import create
 class CheckpointInitializer(InitializerBase):
     def __init__(self, stage_id, model_name, checkpoint, load_optim, model_info=None, stage_name=None, **kwargs):
         super().__init__(**kwargs)
-        self.stage_id = stage_id
+        self.stage_id = stage_id or self.stage_path_provider.previous_stage_ids.get(stage_name)
         self.model_name = model_name
         self.load_optim = load_optim
         self.model_info = model_info
