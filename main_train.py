@@ -72,7 +72,7 @@ def main_single(device):
 
     # parse stages
     run_hp = get_run_hp(temp_hp_path)
-    stage_names, stage_hp_list = get_stage_hp_list(
+    stage_names, stage_hp_list, ignore_specific_stage_names = get_stage_hp_list(
         run_hp,
         template_path=".",
         testrun=cli_args.testrun,
@@ -153,7 +153,7 @@ def main_single(device):
             stage_id = object_list[0]
 
         # train stages
-        if stage_name is None:
+        if ignore_specific_stage_names:
             stage_name = stage_hp.get("stage_name", "default_stage")
 
         # save copy of hp in case it changes while waiting for GPU

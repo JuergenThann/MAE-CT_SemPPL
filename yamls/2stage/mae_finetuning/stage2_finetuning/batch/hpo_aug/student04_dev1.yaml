@@ -22,7 +22,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -309,7 +309,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -596,7 +596,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -883,7 +883,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -1170,7 +1170,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -1457,7 +1457,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -1743,7 +1743,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -2020,7 +2020,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -2297,7 +2297,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -2574,7 +2574,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -2851,7 +2851,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -3128,7 +3128,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -3406,7 +3406,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -3693,7 +3693,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -3980,7 +3980,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1
@@ -4267,7 +4267,7 @@ stages:
       continue_from_stage_id: bymoyvsh
       continue_from_stage_name: cifar100_stage1_mae
 
-    name: CIFAR-100 MAE + Fine-Tuning 10% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
+    name: CIFAR-100 MAE + Fine-Tuning 1% (MAE ${vars.randaug_num_ops}op crop${vars.min_scale} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.mixup} == 0.0 else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep)
     stage_name: cifar100_stage2_mae_finetuning
     ignore_stage_name: true
     num_workers: 1

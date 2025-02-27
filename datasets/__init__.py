@@ -113,6 +113,7 @@ def copy_folder_from_global_to_local(
             if end_copy_file.exists():
                 # already automatically copied -> do nothing
                 log(log_fn, f"dataset was already automatically copied '{dst_path}'")
+                return
             else:
                 # incomplete copy -> delete and copy again
                 log(log_fn, f"found incomplete automatic copy in '{dst_path}' -> deleting folder")
@@ -120,6 +121,7 @@ def copy_folder_from_global_to_local(
                 dst_path.mkdir()
         else:
             log(log_fn, f"using manually copied dataset '{dst_path}'")
+            return
     else:
         dst_path.mkdir(parents=True)
 

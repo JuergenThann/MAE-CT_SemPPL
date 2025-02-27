@@ -55,19 +55,25 @@ def get_stage_hp_list(
         resolver.post_processors.append(MinDataPostProcessor())
     if mindurationrun or testrun:
         resolver.post_processors.append(MinDurationPostProcessor())
+    ignore_specific_stage_names = True
 
     if "stages" not in variant_hp:
-        return [None], [resolver.resolve(variant_hp)]
+        return [None], [resolver.resolve(variant_hp)], ignore_specific_stage_names
 
     stages = variant_hp.pop("stages")
     stage_names = []
     stage_hp_list = []
+    if "ignore_specific_stage_names" in variant_hp:
+        ignore_specific_stage_names = variant_hp.pop("ignore_specific_stage_names")
+    else:
+        ignore_specific_stage_names = False
+
     for stage_name, stage_hp in stages.items():
         merged = kc.merge(variant_hp, stage_hp, allow_path_accessors=True)
         resolved = resolver.resolve(merged)
         stage_names.append(stage_name)
         stage_hp_list.append(resolved)
-    return stage_names, stage_hp_list
+    return stage_names, stage_hp_list, ignore_specific_stage_names
 
 
 def remove_large_collections(stage_hp):

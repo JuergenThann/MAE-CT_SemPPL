@@ -1,14 +1,13 @@
 vars:
   label_percentage: 0.01
   lr: 0.004
-  min_lr: 1e-6
   weight_decay: 0.3
   beta2: 0.999
   layerwise_lr_decay: 0.75
   batch_size: 500
   warmup_epochs: 20
   max_epochs: 150
-  min_scale: 0.8
+  crop: 0.8
   randaug_num_ops: 1
   randaug_magnitude: 9
   randaug_magnitude_std: 0.5
@@ -19,8 +18,17 @@ vars:
   drop_path: 0.0
   continue_from_stage_id: bymoyvsh
   continue_from_stage_name: cifar100_stage1_mae
+  collators:
+    - kind: kd_mix_collator
+      mixup_alpha: ${vars.mixup}
+      cutmix_alpha: ${vars.cutmix}
+      mixup_p: 0.5
+      cutmix_p: 0.5
+      apply_mode: batch
+      lamb_mode: batch
+      shuffle_mode: flip
 
-name: CIFAR-100 MAE + Fine-Tuning 10% (MAE 1op crop0.8 nodroppath lr+ lwlrd+ 225ep)
+name: CIFAR-100 MAE + Fine-Tuning ${eval:int(${vars.label_percentage} * 100)}% (MAE ${vars.randaug_num_ops}op crop${vars.crop} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.collators} is None else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep BS${vars.batch_size})
 stage_name: cifar100_stage2_mae_finetuning
 ignore_stage_name: true
 num_workers: 1
@@ -43,7 +51,7 @@ datasets:
           - kind: kd_random_resized_crop
             size: 32
             scale:
-              - ${vars.min_scale}
+              - ${vars.crop}
               - 1.0
             interpolation: bicubic
           - kind: kd_rand_augment
@@ -56,15 +64,7 @@ datasets:
           - kind: kd_cifar100_norm
       - kind: label_smoothing_wrapper
         smoothing: ${vars.label_smoothing}
-    collators:
-      - kind: kd_mix_collator
-        mixup_alpha: ${vars.mixup}
-        cutmix_alpha: ${vars.cutmix}
-        mixup_p: 0.5
-        cutmix_p: 0.5
-        apply_mode: batch
-        lamb_mode: batch
-        shuffle_mode: flip
+    collators: ${vars.collators}
   train_unaugmented:
     kind: torchvision_dataset_wrapper
     dataset_identifier: cifar100
@@ -128,7 +128,6 @@ model:
           kind: linear_increasing
         - exclude_last: true
           kind: cosine_decreasing
-          abs_end_value: ${eval:${vars.min_lr}/${vars.lr}}
   head:
     kind: heads.linear_head
     nonaffine_batchnorm: true
@@ -150,7 +149,6 @@ model:
           kind: linear_increasing
         - exclude_last: true
           kind: cosine_decreasing
-          abs_end_value: ${eval:${vars.min_lr}/${vars.lr}}
     initializer:
       kind: trunc_normal_initializer
       std: 0.01

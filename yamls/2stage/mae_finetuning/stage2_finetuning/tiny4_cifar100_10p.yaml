@@ -1,7 +1,6 @@
 vars:
   label_percentage: 0.1
   lr: 0.004
-  min_lr: 1e-6
   weight_decay: 0.3
   beta2: 0.999
   layerwise_lr_decay: 0.75
@@ -128,7 +127,6 @@ model:
           kind: linear_increasing
         - exclude_last: true
           kind: cosine_decreasing
-          abs_end_value: ${eval:${vars.min_lr}/${vars.lr}}
   head:
     kind: heads.linear_head
     nonaffine_batchnorm: true
@@ -150,7 +148,6 @@ model:
           kind: linear_increasing
         - exclude_last: true
           kind: cosine_decreasing
-          abs_end_value: ${eval:${vars.min_lr}/${vars.lr}}
     initializer:
       kind: trunc_normal_initializer
       std: 0.01
