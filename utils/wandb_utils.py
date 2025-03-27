@@ -1,8 +1,10 @@
 import logging
 from copy import deepcopy
+from pathlib import Path
 
 import torch
 import wandb
+import yaml
 
 from configs.wandb_config import WandbConfig
 from distributed.config import is_rank0, get_world_size, get_nodes
@@ -14,6 +16,7 @@ from providers.summary_providers.noop_summary_provider import NoopSummaryProvide
 from providers.summary_providers.primitive_summary_provider import PrimitiveSummaryProvider
 from providers.summary_providers.wandb_summary_provider import WandbSummaryProvider
 from utils.kappaconfig.util import remove_large_collections
+from configs.util import cliarg_or_staticvalue
 
 
 def init_wandb(
@@ -27,8 +30,7 @@ def init_wandb(
         tags: list,
         notes: str,
         group: str,
-        group_tags: dict,
-        ignore_stage_name: bool
+        group_tags: dict
 ):
     logging.info("------------------")
     logging.info(f"initializing wandb (mode={wandb_config.mode})")
@@ -54,9 +56,6 @@ def init_wandb(
     if not wandb_config.is_disabled:
         wandb.login(host=wandb_config.host)
         logging.info(f"logged into wandb (host={wandb_config.host})")
-        name = run_name or "None"
-        if not ignore_stage_name and stage_path_provider.stage_name != "default_stage":
-            name += f"/{stage_path_provider.stage_name}"
         wandb_id = resume_id or stage_path_provider.stage_id
         # can't group by tags -> with group tags you can (by adding it as a field to the config)
         # group_tags:
@@ -78,7 +77,7 @@ def init_wandb(
         wandb.init(
             entity=wandb_config.entity,
             project=wandb_config.project,
-            name=name,
+            name=run_name,
             dir=str(stage_path_provider.stage_output_path),
             save_code=False,
             config=config,
@@ -104,6 +103,58 @@ def init_wandb(
     config_provider.update(additional_config)
 
     return config_provider, summary_provider
+
+
+def get_full_run_name(cliargs, stage_hp, stage_path_provider):
+    base_name = cliargs.name or stage_hp.pop("name", None)
+    name = base_name or "None"
+    if not stage_hp.pop("ignore_stage_name", False) and stage_path_provider.stage_name != "default_stage":
+        name += f"/{stage_path_provider.stage_name}"
+    return name
+
+
+def get_wandb_config(stage_hp, cliargs, static_config):
+    wandb_config_uri = stage_hp.pop("wandb", None)
+    if wandb_config_uri == "disabled":
+        wandb_mode = "disabled"
+    else:
+        wandb_mode = cliarg_or_staticvalue(cliargs.wandb_mode, static_config.default_wandb_mode)
+    if wandb_mode == "disabled":
+        wandb_config_dict = {}
+        if cliargs.wandb_config is not None or wandb_config_uri is not None:
+            logging.warning(f"wandb_config is defined via CLI but mode is disabled -> wandb_config is not used")
+    else:
+        # retrieve wandb config from yaml
+        if wandb_config_uri is not None:
+            wandb_config_uri = Path("wandb_configs") / wandb_config_uri
+            if cliargs.wandb_config is not None:
+                logging.warning(f"wandb_config is defined via CLI and via yaml -> wandb_config from yaml is used")
+        # retrieve wandb config from --wandb_config cli arg
+        elif cliargs.wandb_config is not None:
+            wandb_config_uri = Path("wandb_configs") / cliargs.wandb_config
+        # use default wandb_config file
+        else:
+            wandb_config_uri = Path("wandb_config.yaml")
+        with open(wandb_config_uri.with_suffix(".yaml")) as f:
+            wandb_config_dict = yaml.safe_load(f)
+    return WandbConfig(mode=wandb_mode, **wandb_config_dict)
+
+
+def check_exists_in_wandb(run_name, wandb_config):
+    """ check if a run with this name already exists in state "running" or "finished" """
+    api = wandb.Api()
+    runs = api.runs(
+        path=f'{wandb_config.entity}/{wandb_config.project}',
+        filters={
+            "$and": [
+                {"displayName": {"$eq": run_name}},
+                {"state": {"$in": ["finished", "running"]}}
+            ]
+        }
+    )
+    if len(runs) != 0:
+        return True
+    return False
 
 
 def _lists_to_dict(root):

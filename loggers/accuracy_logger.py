@@ -11,19 +11,23 @@ from kappadata.wrappers.sample_wrappers import LabelSmoothingWrapper
 
 
 class AccuracyLogger(DatasetLogger):
-    def __init__(self, predict_kwargs=None, accuracies_per_class=False, accuracy_view_idx=None, **kwargs):
+    def __init__(self, predict_kwargs=None, accuracies_per_class=False, accuracy_view_idx=None, top_k=None, **kwargs):
         super().__init__(**kwargs)
         self.predict_kwargs = predict_kwargs or {}
         self.accuracies_per_class = accuracies_per_class
         self.accuracy_view_idx = accuracy_view_idx
+        self.top_k = top_k
+        if isinstance(self.top_k, int):
+            self.top_k = [self.top_k]
 
     def _before_training_impl(self, **kwargs):
-        if self.dataset.n_classes <= 10:
-            self.top_k = [1]
-        else:
-            # calculating an additional accuracy for IN1K is not that cheap (ViT-B probe: 20% of update time)
-            # self.top_k = [1, 5]
-            self.top_k = [1]
+        if self.top_k is None:
+            if self.dataset.n_classes <= 10:
+                self.top_k = [1]
+            else:
+                # calculating an additional accuracy for IN1K is not that cheap (ViT-B probe: 20% of update time)
+                # self.top_k = [1, 5]
+                self.top_k = [1]
 
     def _forward_accuracy(self, batch, model, trainer):
         x, cls = batch

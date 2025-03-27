@@ -28,6 +28,7 @@ class CliArgs:
     stage_idx: int
     datasets_were_preloaded: bool
     disable_flash_attention: bool
+    skip_if_exists_in_wandb: bool
 
     def log(self):
         logging.info("------------------")
@@ -101,5 +102,7 @@ def parse_run_cli_args() -> CliArgs:
     parser.add_argument("--datasets_were_preloaded", action="store_true")
     # flash attention
     parser.add_argument("--disable_flash_attention", action="store_true")
+    # skip the run if its name is already taken in wandb and the existing run is in state finished or running
+    parser.add_argument("--skip_if_exists_in_wandb", action="store_true")
 
     return CliArgs(**vars(parser.parse_known_args()[0]))

@@ -3,6 +3,7 @@ import os
 
 import kappaprofiler as kp
 import torch
+import wandb
 from torch.distributed import broadcast_object_list
 from wandb.util import generate_id
 
@@ -11,6 +12,7 @@ from configs.static_config import StaticConfig
 from configs.util import cliarg_or_staticvalue
 from distributed.config import barrier, get_rank, get_local_rank, get_world_size, is_managed, is_rank0, is_distributed
 from distributed.run import run_single_or_multiprocess, run_managed
+from distributed.gather import all_reduce_sum_grad
 from providers.stage_path_provider import StagePathProvider
 from train_stage import train_stage
 from utils.kappaconfig.util import get_run_hp, save_unresolved_hp
@@ -19,6 +21,7 @@ from utils.kappaconfig.util import get_stage_ids_from_cli
 from utils.logging_util import add_global_handlers, log_from_all_ranks
 from utils.pytorch_cuda_timing import cuda_start_event, cuda_end_event
 from utils.version_check import check_versions
+from utils.wandb_utils import get_full_run_name, check_exists_in_wandb, get_wandb_config
 import time
 from pathlib import Path
 import atexit
@@ -26,6 +29,7 @@ import platform
 import tempfile
 from signal import signal, SIGQUIT, SIGABRT, SIGTERM
 from functools import partial
+from random import randint
 
 
 def main_single(device):
@@ -138,48 +142,80 @@ def main_single(device):
         with log_from_all_ranks():
             logging.info(f"{os.getpid()}: Device ({device_id}) is now ready.")
 
+    if is_rank0() and cli_args.skip_if_exists_in_wandb:
+        sleep_time = randint(1, 60)
+        logging.info(
+            f'Sleeping {sleep_time}s (randomly chosen between 1s and 60s) to avoid race conditions due to "--skip_if_exists_in_wandb".')
+        time.sleep(sleep_time)
+
     # TODO the logging for this is not ideal
     for i, (stage_name, stage_hp) in enumerate(zip(stage_names, stage_hp_list)):
-        # run only specific stage (defined by cli arg)
-        stage_idx_cliarg = cli_args.stage_idx
-        if stage_idx_cliarg is not None and stage_idx_cliarg != i:
-            continue
+        run_name = stage_name
+        try:
+            # run only specific stage (defined by cli arg)
+            stage_idx_cliarg = cli_args.stage_idx
+            if stage_idx_cliarg is not None and stage_idx_cliarg != i:
+                continue
 
-        # generate stage_id and sync across devices
-        stage_id = generate_id()
-        if is_distributed():
-            object_list = [stage_id] if is_rank0() else [None]
-            broadcast_object_list(object_list)
-            stage_id = object_list[0]
+            # generate stage_id and sync across devices
+            stage_id = generate_id()
+            if is_distributed():
+                object_list = [stage_id] if is_rank0() else [None]
+                broadcast_object_list(object_list)
+                stage_id = object_list[0]
 
-        # train stages
-        if ignore_specific_stage_names:
-            stage_name = stage_hp.get("stage_name", "default_stage")
+            # train stages
+            if ignore_specific_stage_names:
+                stage_name = stage_hp.get("stage_name", "default_stage")
 
-        # save copy of hp in case it changes while waiting for GPU
-        stage_path_provider = StagePathProvider(
-            output_path=static_config.output_path,
-            model_path=static_config.model_path,
-            stage_name=stage_name,
-            stage_id=stage_id,
-        )
-        if is_rank0():
-            save_unresolved_hp(temp_hp_path, stage_path_provider.stage_output_path / "hp_unresolved.yaml")
-        barrier()
+            # save copy of hp in case it changes while waiting for GPU
+            stage_path_provider = StagePathProvider(
+                output_path=static_config.output_path,
+                model_path=static_config.model_path,
+                stage_name=stage_name,
+                stage_id=stage_id,
+            )
 
-        max_batch_size = max_batch_sizes[stage_name] if stage_name in max_batch_sizes else None
-        train_stage(
-            stage_hp=stage_hp,
-            static_config=static_config,
-            cliargs=cli_args,
-            device=device,
-            stage_name=stage_name,
-            stage_id=stage_id,
-            max_batch_size=max_batch_size,
-            previous_stage_ids=stage_ids,
-        )
-        # remember stage_id for next stages
-        stage_ids[stage_name] = stage_id
+            run_name = get_full_run_name(cli_args, stage_hp, stage_path_provider)
+            wandb_config = get_wandb_config(stage_hp, cli_args, static_config)
+
+            skip_run = False
+            if cli_args.skip_if_exists_in_wandb and not wandb_config.is_disabled and is_rank0():
+                # check if run with same name and state finished or running already exists in WandB. If so, skip.
+                run_exists = check_exists_in_wandb(run_name, wandb_config)
+                if run_exists:
+                    logging.info(f'Run "{run_name}" already exists in WandB - skipping.')
+                    skip_run = True
+            skip_run = all_reduce_sum_grad(1 if is_rank0() and skip_run else 0).item()
+            if skip_run:
+                continue
+
+            if is_rank0():
+                save_unresolved_hp(temp_hp_path, stage_path_provider.stage_output_path / "hp_unresolved.yaml")
+            barrier()
+
+            max_batch_size = max_batch_sizes[stage_name] if stage_name in max_batch_sizes else None
+            train_stage(
+                stage_hp=stage_hp,
+                static_config=static_config,
+                cliargs=cli_args,
+                device=device,
+                stage_name=stage_name,
+                stage_id=stage_id,
+                max_batch_size=max_batch_size,
+                previous_stage_ids=stage_ids,
+                wandb_config=wandb_config,
+                run_name=run_name
+            )
+            # remember stage_id for next stages
+            stage_ids[stage_name] = stage_id
+        except KeyboardInterrupt:
+            logging.exception(f"exception on run {run_name}, stage {stage_name}")
+            wandb.finish(exit_code=-2)
+            break
+        except:
+            logging.exception(f"exception on run {run_name}, stage {stage_name}")
+            wandb.finish(exit_code=-1)
 
 
 def finalize_job_after_signal(signum, frame, job_file, job_id):

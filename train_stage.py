@@ -1,9 +1,7 @@
 import logging
 import os
-from pathlib import Path
 
 import kappaprofiler as kp
-import yaml
 
 from configs.cli_args import CliArgs
 from configs.static_config import StaticConfig
@@ -41,6 +39,8 @@ def train_stage(
         stage_id: str,
         previous_stage_ids: dict,
         max_batch_size: int,
+        wandb_config: WandbConfig,
+        run_name: str,
 ):
     # initialize logging
     stage_path_provider = StagePathProvider(
@@ -57,33 +57,9 @@ def train_stage(
         device = "cpu"
 
     # initialize wandb
-    wandb_config_uri = stage_hp.pop("wandb", None)
-    if wandb_config_uri == "disabled":
-        wandb_mode = "disabled"
-    else:
-        wandb_mode = cliarg_or_staticvalue(cliargs.wandb_mode, static_config.default_wandb_mode)
-    if wandb_mode == "disabled":
-        wandb_config_dict = {}
-        if cliargs.wandb_config is not None or wandb_config_uri is not None:
-            logging.warning(f"wandb_config is defined via CLI but mode is disabled -> wandb_config is not used")
-    else:
-        # retrieve wandb config from yaml
-        if wandb_config_uri is not None:
-            wandb_config_uri = Path("wandb_configs") / wandb_config_uri
-            if cliargs.wandb_config is not None:
-                logging.warning(f"wandb_config is defined via CLI and via yaml -> wandb_config from yaml is used")
-        # retrieve wandb config from --wandb_config cli arg
-        elif cliargs.wandb_config is not None:
-            wandb_config_uri = Path("wandb_configs") / cliargs.wandb_config
-        # use default wandb_config file
-        else:
-            wandb_config_uri = Path("wandb_config.yaml")
-        with open(wandb_config_uri.with_suffix(".yaml")) as f:
-            wandb_config_dict = yaml.safe_load(f)
-    wandb_config = WandbConfig(mode=wandb_mode, **wandb_config_dict)
     config_provider, summary_provider = init_wandb(
         device=device,
-        run_name=cliargs.name or stage_hp.pop("name", None),
+        run_name=run_name,
         stage_hp=stage_hp,
         resume_id=cliargs.wandb_resume_id,
         wandb_config=wandb_config,
@@ -92,8 +68,7 @@ def train_stage(
         tags=stage_hp.pop("tags", None),
         notes=stage_hp.pop("notes", None),
         group=stage_hp.pop("group", None),
-        group_tags=stage_hp.pop("group_tags", None),
-        ignore_stage_name=stage_hp.pop("ignore_stage_name", False)
+        group_tags=stage_hp.pop("group_tags", None)
     )
 
     # flash attention
