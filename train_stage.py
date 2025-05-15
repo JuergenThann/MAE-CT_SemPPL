@@ -21,7 +21,7 @@ from trainers import trainer_from_kwargs
 from utils.commands import command_from_kwargs
 from utils.data_container import DataContainer
 from utils.kappaconfig.util import save_unresolved_hp, save_resolved_hp, log_stage_hp
-from utils.logging_util import add_global_handlers
+from utils.logging_util import add_global_handlers, close_handlers
 from utils.memory_leak_util import get_tensors_in_memory
 from utils.seed import set_seed
 from utils.system_info import log_system_info, get_cli_command
@@ -240,6 +240,7 @@ def train_stage(
     data_container.dispose()
     message_counter.log()
     finish_wandb(wandb_config)
+    close_handlers()
 
     # log how many tensors remain to be aware of potential memory leaks
     all_tensors, cuda_tensors = get_tensors_in_memory()

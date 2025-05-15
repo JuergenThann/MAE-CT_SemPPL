@@ -1,0 +1,156 @@
+vars:
+  label_percentage: 0.01
+  weight_decay: 0.05
+  beta2: 0.999
+  warmup_epochs: 5
+  crop: 0.8
+  randaug_num_ops: 1
+  randaug_magnitude: 9
+  randaug_magnitude_std: 0.5
+  randaug_apply_op_p: 1
+  color_jitter: 0.4
+  label_smoothing: 0.1
+  mixup: 0.8
+  cutmix: 1.0
+  supervised_mixup_mode: null
+  unsupervised_mixup_mode: null
+  threshold: 0.6
+  unsupervised_loss_weight: 5
+  teacher_pseudo_labeling: true
+  strong_augmentation_for_labeled: true
+  batch_size: 100
+  max_epochs: 1
+  target_factor: 0.9999
+  name: CIFAR-100 MAE + Fine-Tuning 1% (MAE 1op crop0.4 nodroppath nomixup lr0.002 lwlrd0.75 350ep BS24) + FixMatch 1% (SemiViT PrevEps BS 1op crop0.8 nodroppath nomixup lr0.005 lwlrd0.75 tf0.9999 50/250ep BS24) + top5acc
+
+  # FIXMATCH
+  # continue_from_stage_name: cifar100_stage3_mae_finetuning_fixmatch
+  # continue_from_stage_id: bwkkjghl
+  # encoder_initializer:
+  #   checkpoint: last
+  #   kind: previous_run_initializer
+  #   model_name: semivit.target_encoder
+  #   stage_id: ${vars.continue_from_stage_id}
+  #   stage_name: ${vars.continue_from_stage_name}
+  # head_initializer:
+  #   checkpoint: last
+  #   kind: previous_run_initializer
+  #   model_name: semivit.head.fixmatch
+  #   stage_id: ${vars.continue_from_stage_id}
+  #   stage_name: ${vars.continue_from_stage_name}
+
+  # FINETUNING
+  continue_from_stage_name: cifar100_stage2_mae_finetuning
+  continue_from_stage_id: al964eqx
+  encoder_initializer:
+    checkpoint: last
+    kind: previous_run_initializer
+    model_name: backbone_head.backbone
+    stage_id: ${vars.continue_from_stage_id}
+    stage_name: ${vars.continue_from_stage_name}
+  head_initializer:
+    checkpoint: last
+    kind: previous_run_initializer
+    model_name: backbone_head.head
+    stage_id: ${vars.continue_from_stage_id}
+    stage_name: ${vars.continue_from_stage_name}
+
+name: ${vars.name}
+stage_name: cifar100_top5acc
+ignore_stage_name: true
+datasets:
+  train:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar100
+    num_classes: 100
+    torchvision_args:
+      kind: CIFAR100
+      train: true
+      download: false
+    dataset_wrappers:
+      - kind: classwise_subset_wrapper
+        end_index: 1
+    sample_wrappers:
+      - kind: multi_view_wrapper
+        transforms:
+          - - kind: kd_cifar100_norm
+          - - kind: kd_cifar100_norm
+  train_unaugmented:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar100
+    num_classes: 100
+    torchvision_args:
+      kind: CIFAR100
+      train: true
+      download: false
+    x_transform:
+      - kind: kd_cifar100_norm
+  test:
+    kind: torchvision_dataset_wrapper
+    dataset_identifier: cifar100
+    num_classes: 100
+    torchvision_args:
+      kind: CIFAR100
+      train: false
+      download: false
+    x_transform:
+      - kind: kd_cifar100_norm
+model:
+  kind: mae_contheads_vit
+  name: semivit
+  target_factor: ${vars.target_factor}
+  encoder:
+    kind: vit.masked_encoder
+    patch_size: 4
+    embedding_dim: 192
+    depth: 12
+    attention_heads: 3
+    is_frozen: true
+    initializer: ${vars.encoder_initializer}
+  contrastive_heads:
+    fixmatch:
+      kind: heads.fixmatch_head
+      target_factor: ${vars.target_factor}
+      nonaffine_batchnorm: true
+      output_shape: 100
+      threshold: ${vars.threshold}
+      unsupervised_loss_weight: ${vars.unsupervised_loss_weight}
+      teacher_pseudo_labeling: ${vars.teacher_pseudo_labeling}
+      strong_augmentation_for_labeled: ${vars.strong_augmentation_for_labeled}
+      pooling:
+        kind: class_token
+        # kind: mean_patch
+      is_frozen: true
+      initializer: ${vars.head_initializer}
+trainer:
+  kind: mae_contheads_vit_trainer
+  disable_backward: true
+  max_epochs: ${vars.max_epochs}
+  effective_batch_size: ${vars.batch_size}
+  precision: bfloat16
+  mask_generator:
+    kind: random_mask_generator
+    mask_ratio: 0.0
+  normalize_pixels: true
+  log_every_n_epochs: 1
+  loggers:
+    - kind: accuracy_logger
+      every_n_epochs: 1
+      dataset_key: train_unaugmented
+      top_k:
+        - 1
+        - 5
+      predict_kwargs:
+        views:
+          - 0
+        dataset_key: train_unaugmented
+    - kind: accuracy_logger
+      every_n_epochs: 1
+      dataset_key: test
+      top_k:
+        - 1
+        - 5
+      predict_kwargs:
+        views:
+          - 0
+        dataset_key: test

@@ -27,11 +27,13 @@ vars:
       apply_mode: batch
       lamb_mode: batch
       shuffle_mode: flip
+  hpo_type: null
 
-name: CIFAR-100 MAE + Fine-Tuning ${eval:int(${vars.label_percentage} * 100)}% (MAE ${vars.randaug_num_ops}op crop${vars.crop} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if ${vars.collators} is None else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep BS${vars.batch_size})
+  name: CIFAR-100 MAE + Fine-Tuning ${eval:int(${vars.label_percentage} * 100)}% (MAE ${eval:'' if '${vars.hpo_type}' == 'None' else '${vars.hpo_type} '}${vars.randaug_num_ops}op crop${vars.crop} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if "${vars.collators}" == 'None' else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep BS${vars.batch_size})
+
+name: ${vars.name}
 stage_name: cifar100_stage2_mae_finetuning
 ignore_stage_name: true
-num_workers: 1
 datasets:
   train:
     kind: torchvision_dataset_wrapper
@@ -162,9 +164,15 @@ trainer:
     - kind: accuracy_logger
       every_n_epochs: 1
       dataset_key: train
+      top_k:
+        - 1
+        - 5
     - kind: accuracy_logger
       every_n_epochs: 1
       dataset_key: test
+      top_k:
+        - 1
+        - 5
     - kind: loss_logger
       every_n_epochs: 1
       dataset_key: train
@@ -174,10 +182,7 @@ trainer:
     - kind: checkpoint_logger
       save_latest_optim: false
       save_optim: false
-      every_n_epochs: 50
-    - kind: best_model_logger
-      every_n_epochs: 1
-      metric_key: accuracy1/test/main
+      every_n_epochs: ${eval:${vars.max_epochs}+1}
     - kind: best_metric_logger
       every_n_epochs: 1
       pattern: accuracy1/train*
@@ -191,6 +196,20 @@ trainer:
     - kind: best_metric_logger
       every_n_epochs: 1
       pattern: accuracy1/test*
+      log_absolute_best: true
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy5/train*
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy5/train*
+      log_absolute_best: true
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy5/test*
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy5/test*
       log_absolute_best: true
     - kind: feature_umap_logger
       dataset_key: test_small
@@ -276,6 +295,14 @@ summary_summarizers:
     pattern: accuracy1/test*/last
   - kind: best_metric_summary_summarizer
     pattern: accuracy1/test*/max
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy5/train*/last
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy5/train*/max
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy5/test*/last
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy5/test*/max
   - kind: best_metric_summary_summarizer
     pattern: knn_accuracy/knn*/GenericExtractor-batchnorm/train_unaugmented-test/max
   - kind: best_metric_summary_summarizer

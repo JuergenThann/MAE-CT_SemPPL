@@ -1,14 +1,14 @@
 vars:
   label_percentage: 0.01
   lr: 0.0001
-  weight_decay_encoder: 0.05
-  weight_decay_head: 0.05
+  weight_decay_encoder: 1.0e-6
+  weight_decay_head: 1.0e-6
   beta2: 0.999
   layerwise_lr_decay: 1.0
   warmup_epochs: 5
   max_epochs: 100
   min_scale: 0.08
-  target_factor: 0.99
+  target_factor: 0.996
   # randaug_num_ops: 2
   # randaug_magnitude: 9
   # randaug_magnitude_std: 0.5
@@ -16,17 +16,20 @@ vars:
   # mixup: 0.8
   # cutmix: 1.0
   # drop_path: 0
-  continue_from_stage_id: x8loap89
-  continue_from_stage_name: stage1_mae
+  continue_from_stage_id: bymoyvsh
+  continue_from_stage_name: cifar100_stage1_mae
+  hpo_type: null
 
-stage_name: cifar10_stage2_mae_semppl
+name: CIFAR-100 MAE + SemPPL ${eval:int(${vars.label_percentage} * 100)}% (aug=SimpSemPPL smallcrop=0.08-1 ${eval:'' if '${vars.hpo_type}' == 'None' else '${vars.hpo_type} '}wd${vars.weight_decay_encoder} tf${vars.target_factor} temp0.2 lr${vars.lr} 5u:1l)
+stage_name: cifar100_stage2_mae_semppl
+ignore_stage_name: true
 datasets:
   train:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar10
-    num_classes: 10
+    dataset_identifier: cifar100
+    num_classes: 100
     torchvision_args:
-      kind: CIFAR10
+      kind: CIFAR100
       train: true
       download: false
     dataset_wrappers:
@@ -34,7 +37,7 @@ datasets:
         labeled_percentage: ${eval:${vars.label_percentage} * 100}
       - kind: semisupervised_oversampling_wrapper
         include_labeled_in_unlabeled: true
-        unlabeled_to_labeled_ratio: 7
+        unlabeled_to_labeled_ratio: 5
     sample_wrappers:
       - kind: multi_crop_wrapper
         transform_configs:
@@ -61,10 +64,10 @@ datasets:
                 sigma:
                   - 0.1
                   - 2.0
-              - kind: kd_random_solarize
-                p: 0.1
-                threshold: 0.5
-              - kind: kd_cifar10_norm
+              # - kind: kd_random_solarize
+              #   p: 0.1
+              #   threshold: 0.5
+              - kind: kd_cifar100_norm
           - n_views: 2
             transforms:
               - interpolation: bicubic
@@ -88,10 +91,10 @@ datasets:
                 sigma:
                   - 0.1
                   - 2.0
-              - kind: kd_random_solarize
-                p: 0.1
-                threshold: 0.5
-              - kind: kd_cifar10_norm
+              # - kind: kd_random_solarize
+              #   p: 0.1
+              #   threshold: 0.5
+              - kind: kd_cifar100_norm
 model:
   kind: mae_contheads_vit
   target_factor: ${vars.target_factor}
@@ -132,7 +135,7 @@ model:
       pred_hidden_dim: 1024
       output_dim: 64
       queue_size: 2560
-      temperature: 0.15
+      temperature: 0.2
       target_factor: ${vars.target_factor}
       pooling:
         kind: mean_patch
@@ -163,7 +166,7 @@ model:
 trainer:
   kind: mae_contheads_vit_trainer
   max_epochs: ${vars.max_epochs}
-  effective_batch_size: 128
+  effective_batch_size: 48
   precision: bfloat16
   mask_generator:
     kind: random_mask_generator

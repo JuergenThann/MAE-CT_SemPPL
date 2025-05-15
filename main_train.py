@@ -4,6 +4,7 @@ import os
 import kappaprofiler as kp
 import torch
 import wandb
+import psutil
 from torch.distributed import broadcast_object_list
 from wandb.util import generate_id
 
@@ -143,13 +144,14 @@ def main_single(device):
             logging.info(f"{os.getpid()}: Device ({device_id}) is now ready.")
 
     if is_rank0() and cli_args.skip_if_exists_in_wandb:
-        sleep_time = randint(1, 60)
+        sleep_time = randint(1, 120)
         logging.info(
-            f'Sleeping {sleep_time}s (randomly chosen between 1s and 60s) to avoid race conditions due to "--skip_if_exists_in_wandb".')
+            f'Sleeping {sleep_time}s (randomly chosen between 1s and 120s) to avoid race conditions due to "--skip_if_exists_in_wandb".')
         time.sleep(sleep_time)
 
     # TODO the logging for this is not ideal
     for i, (stage_name, stage_hp) in enumerate(zip(stage_names, stage_hp_list)):
+        wandb_exit_code = None
         run_name = stage_name
         try:
             # run only specific stage (defined by cli arg)
@@ -211,11 +213,21 @@ def main_single(device):
             stage_ids[stage_name] = stage_id
         except KeyboardInterrupt:
             logging.exception(f"exception on run {run_name}, stage {stage_name}")
-            wandb.finish(exit_code=-2)
-            break
+            wandb_exit_code = -2
         except:
             logging.exception(f"exception on run {run_name}, stage {stage_name}")
-            wandb.finish(exit_code=-1)
+            wandb_exit_code = -1
+
+        proc = psutil.Process()
+        logging.info(f'open file handles after training: {proc.open_files()}')
+
+        if wandb_exit_code is not None:
+            wandb.finish(exit_code=wandb_exit_code)
+            # keyboard interrupt -> cancel all runs
+            if wandb_exit_code == -2:
+                break
+        else:
+            wandb.finish()
 
 
 def finalize_job_after_signal(signum, frame, job_file, job_id):

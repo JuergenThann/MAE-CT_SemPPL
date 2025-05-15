@@ -1,31 +1,47 @@
 vars:
   label_percentage: 0.01
-  lr: 0.001
-  weight_decay: 0.05
+  lr: 0.004
+  weight_decay: 0.3
   beta2: 0.999
   layerwise_lr_decay: 0.75
-  warmup_epochs: 5
-  max_epochs: 100
-  min_scale: 0.6
+  batch_size: 500
+  warmup_epochs: 20
+  max_epochs: 150
+  crop: 0.8
   randaug_num_ops: 1
   randaug_magnitude: 9
   randaug_magnitude_std: 0.5
   randaug_apply_op_p: 1
   label_smoothing: 0.1
-  # mixup: 0.8
-  # cutmix: 1.0
-  # drop_path: 0
-  continue_from_stage_id: obw2461c
-  continue_from_stage_name: stage2_mae_semppl
+  mixup: 0.8
+  cutmix: 1.0
+  drop_path: 0.0
+  continue_from_stage_id: fjsq77d3
+  continue_from_stage_name: cifar100_stage2_mae_semppl
+  collators:
+    - kind: kd_mix_collator
+      mixup_alpha: ${vars.mixup}
+      cutmix_alpha: ${vars.cutmix}
+      mixup_p: 0.5
+      cutmix_p: 0.5
+      apply_mode: batch
+      lamb_mode: batch
+      shuffle_mode: flip
+  hpo_type: null
+  prev_stage_fullname: CIFAR-100 MAE + SemPPL 1% (aug=SimpSemPPL smallcrop=0.08-1)
 
-stage_name: cifar10_stage3_mae_semppl_finetuning
+  name: ${vars.prev_stage_fullname} + Fine-Tuning ${eval:int(${vars.label_percentage} * 100)}% (MAE ${eval:'' if '${vars.hpo_type}' == 'None' else '${vars.hpo_type} '}${vars.randaug_num_ops}op crop${vars.crop} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if "${vars.collators}" == 'None' else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep BS${vars.batch_size})
+
+name: ${vars.name}
+stage_name: cifar100_stage3_mae_semppl_finetuning
+ignore_stage_name: true
 datasets:
   train:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar10
-    num_classes: 10
+    dataset_identifier: cifar100
+    num_classes: 100
     torchvision_args:
-      kind: CIFAR10
+      kind: CIFAR100
       train: true
       download: false
     dataset_wrappers:
@@ -38,7 +54,7 @@ datasets:
           - kind: kd_random_resized_crop
             size: 32
             scale:
-              - ${vars.min_scale}
+              - ${vars.crop}
               - 1.0
             interpolation: bicubic
           - kind: kd_rand_augment
@@ -48,51 +64,40 @@ datasets:
             apply_op_p: ${vars.randaug_apply_op_p}
             interpolation: bicubic
             fill_color: [ 125, 123, 114 ]
-          - kind: kd_cifar10_norm
+          - kind: kd_cifar100_norm
       - kind: label_smoothing_wrapper
         smoothing: ${vars.label_smoothing}
-    # collators:
-    #   - kind: kd_mix_collator
-    #     mixup_alpha: ${vars.mixup}
-    #     cutmix_alpha: ${vars.cutmix}
-    #     mixup_p: 0.5
-    #     cutmix_p: 0.5
-    #     apply_mode: batch
-    #     lamb_mode: batch
-    #     shuffle_mode: flip
+    collators: ${vars.collators}
   train_unaugmented:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar10
-    num_classes: 10
+    dataset_identifier: cifar100
+    num_classes: 100
     torchvision_args:
-      kind: CIFAR10
+      kind: CIFAR100
       train: true
       download: false
     x_transform:
-      - kind: kd_cifar10_norm
+      - kind: kd_cifar100_norm
   test:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar10
-    num_classes: 10
+    dataset_identifier: cifar100
+    num_classes: 100
     torchvision_args:
-      kind: CIFAR10
+      kind: CIFAR100
       train: false
       download: false
     x_transform:
-      - kind: kd_cifar10_norm
+      - kind: kd_cifar100_norm
   test_small:
     kind: torchvision_dataset_wrapper
-    dataset_identifier: cifar10
-    num_classes: 10
+    dataset_identifier: cifar100
+    num_classes: 100
     torchvision_args:
-      kind: CIFAR10
+      kind: CIFAR100
       train: false
       download: false
-    dataset_wrappers:
-      - kind: classwise_subset_wrapper
-        end_index: 200
     x_transform:
-      - kind: kd_cifar10_norm
+      - kind: kd_cifar100_norm
 model:
   kind: backbone_head
   backbone:
@@ -101,11 +106,11 @@ model:
     embedding_dim: 192
     depth: 12
     attention_heads: 3
-    # drop_path_rate: ${vars.drop_path}
+    drop_path_rate: ${vars.drop_path}
     initializer:
       checkpoint: last
       kind: previous_run_initializer
-      model_name: mae_contheads_vit.target_encoder
+      model_name: mae_contheads_vit.encoder
       stage_id: ${vars.continue_from_stage_id}
       stage_name: ${vars.continue_from_stage_name}
     optim:
@@ -153,16 +158,22 @@ model:
 trainer:
   kind: classification_trainer
   max_epochs: ${vars.max_epochs}
-  effective_batch_size: 128
+  effective_batch_size: ${vars.batch_size}
   precision: bfloat16
   log_every_n_epochs: 1
   loggers:
     - kind: accuracy_logger
       every_n_epochs: 1
       dataset_key: train
+      top_k:
+        - 1
+        - 5
     - kind: accuracy_logger
       every_n_epochs: 1
       dataset_key: test
+      top_k:
+        - 1
+        - 5
     - kind: loss_logger
       every_n_epochs: 1
       dataset_key: train
@@ -186,6 +197,20 @@ trainer:
     - kind: best_metric_logger
       every_n_epochs: 1
       pattern: accuracy1/test*
+      log_absolute_best: true
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy5/train*
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy5/train*
+      log_absolute_best: true
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy5/test*
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy5/test*
       log_absolute_best: true
     - kind: feature_umap_logger
       dataset_key: test_small
@@ -271,6 +296,14 @@ summary_summarizers:
     pattern: accuracy1/test*/last
   - kind: best_metric_summary_summarizer
     pattern: accuracy1/test*/max
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy5/train*/last
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy5/train*/max
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy5/test*/last
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy5/test*/max
   - kind: best_metric_summary_summarizer
     pattern: knn_accuracy/knn*/GenericExtractor-batchnorm/train_unaugmented-test/max
   - kind: best_metric_summary_summarizer

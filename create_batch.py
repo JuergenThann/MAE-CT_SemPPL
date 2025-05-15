@@ -26,9 +26,12 @@ def _foldername(name):
 class BatchArgs:
     template: str
     output_name: str
+    simulate: bool
 
 
 def parse_unparsed_args(unparsed_args):
+    debug = False
+
     parameters = []
     combined_args = []
     current_command_name = None
@@ -41,11 +44,20 @@ def parse_unparsed_args(unparsed_args):
             current_command_args = []
         else:
             if current_command_name != 'replace':
+                if debug:
+                    print(f'{current_command_name=}')
+                    print(f'{arg=}')
                 values = arg.split(',')
                 if all(re.match(r'^\d+$', v) for v in values):
                     values = [int(v) for v in values]
+                    if debug:
+                        print('all int')
                 elif all(re.match(r'^[\d\.]+$', v) for v in values):
                     values = [float(v) for v in values]
+                    if debug:
+                        print('all float')
+                elif debug:
+                    print('mixed types')
                 values = [None if v == 'null' else v for v in values]
             else:
                 values = arg
@@ -88,6 +100,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("-t", "--template", type=_yaml, required=True)
     parser.add_argument("-o", "--output_name", type=_foldername, required=True)
+    parser.add_argument("-s", "--simulate", action='store_true')
     parsed_args, unparsed_args = parser.parse_known_args()
     batch_args = BatchArgs(**vars(parsed_args))
 
@@ -95,6 +108,7 @@ def main():
 
     all_parameter_sets = list(product(*(v for _, v in parameters)))
 
+    execution_prefix = batch_args.template.replace('/', '_').replace('\\', '_').replace('.yaml', '') + '_' + batch_args.output_name
     with open(batch_args.template, 'r') as stream:
         yaml_content = yaml.safe_load(stream)
 
@@ -118,7 +132,7 @@ def main():
             else:
                 modified_yaml['vars'][current_parameter] = current_value
 
-        batch_yaml['stages'][f'execution{idx+1:03d}'] = modified_yaml
+        batch_yaml['stages'][f'{execution_prefix}_execution{idx+1:03d}'] = modified_yaml
 
     print(f'Created {len(all_parameter_sets)} runs.')
     print()
@@ -126,12 +140,11 @@ def main():
     print('cd /system/user/studentwork/thann/mae_ct_semppl/code')
     output_path = Path(batch_args.template).parent / 'batch' / f'{Path(batch_args.template).stem}_{batch_args.output_name}.yaml'
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open('w') as f:
-        yaml.dump(batch_yaml, f, default_flow_style=False, default_style=None)
+    if not batch_args.simulate:
+        with output_path.open('w') as f:
+            yaml.dump(batch_yaml, f, default_flow_style=False, default_style=None, sort_keys=False)
     linux_hp_path = output_path.as_posix().replace("\\", "/")
     print(f'python main_train.py --hp {linux_hp_path} --skip_if_exists_in_wandb --devices ...')
-
-
 
 
 if __name__ == "__main__":

@@ -400,7 +400,7 @@ trainer:
       invert_key: false
       category: pseudo_labeling
     - kind: checkpoint_logger
-      every_n_epochs: 10
+      every_n_epochs: ${eval:${vars.max_epochs}+1}
     - kind: ema_logger
       every_n_epochs: 10
       model_paths:
@@ -468,9 +468,6 @@ trainer:
         views:
           - 0
         dataset_key: test
-    - kind: best_model_logger
-      every_n_epochs: 1
-      metric_key: accuracy1/test/fixmatch
     - kind: best_metric_logger
       every_n_epochs: 1
       pattern: accuracy1/train_unaugmented*

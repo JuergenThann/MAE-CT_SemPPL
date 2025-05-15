@@ -18,6 +18,13 @@ def _add_handler(handler, prefix=""):
     return handler
 
 
+def close_handlers():
+    logger = logging.getLogger()
+    for handler in list(logger.handlers):
+        handler.close()
+        logger.handlers.remove(handler)
+
+
 def add_stdout_handler(prefix=""):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)

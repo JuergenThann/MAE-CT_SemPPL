@@ -10,10 +10,12 @@ class TrainTimeLogger(LoggerBase):
         super().__init__(**kwargs)
         self.data_times = []
         self.update_times = []
+        self.logging_times = []
         self.iter_times = []
         self.total_iter_time = 0.
         self.total_data_time = 0.
         self.total_update_time = 0.
+        self.total_logging_time = 0.
 
     def _track_after_update_step(self, **kwargs):
         times = kwargs["times"]
@@ -22,6 +24,7 @@ class TrainTimeLogger(LoggerBase):
             self.iter_times.append(iter_time)
         self.data_times.append(times["data_time"])
         self.update_times.append(times["update_time"])
+        self.logging_times.append(times["logging_time"])
 
     @property
     def allows_multiple_interval_types(self):
@@ -30,19 +33,24 @@ class TrainTimeLogger(LoggerBase):
     def _log(self, update_counter, interval_type, **_):
         mean_data_time = np.mean(self.data_times)
         mean_upd_time = np.mean(self.update_times)
+        mean_log_time = np.mean(self.logging_times)
         self.total_data_time += mean_data_time * len(self.data_times)
         self.total_update_time += mean_upd_time * len(self.update_times)
+        self.total_logging_time += mean_log_time * len(self.logging_times)
         self.data_times = []
         self.update_times = []
+        self.logging_times = []
 
         # gather for all devices
         mean_data_times = all_gather_nograd(mean_data_time)
         mean_update_times = all_gather_nograd(mean_upd_time)
+        mean_logging_times = all_gather_nograd(mean_log_time)
 
-        for i, (mean_data_time, mean_upd_time) in enumerate(zip(mean_data_times, mean_update_times)):
+        for i, (mean_data_time, mean_upd_time, mean_log_time) in enumerate(zip(mean_data_times, mean_update_times, mean_logging_times)):
             # wandb doesn't like it when system/<key> values are logged
             self.writer.add_scalar(f"profiling/trainer/data_time/{i}/{interval_type}", mean_data_time, update_counter)
             self.writer.add_scalar(f"profiling/trainer/update_time/{i}/{interval_type}", mean_upd_time, update_counter)
+            self.writer.add_scalar(f"profiling/trainer/logging_time/{i}/{interval_type}", mean_log_time, update_counter)
 
         if len(self.iter_times) > 0:
             mean_iter_time = np.mean(self.iter_times)
@@ -58,16 +66,19 @@ class TrainTimeLogger(LoggerBase):
             iter_times_str = None
         mean_data_times_str = list_to_string(mean_data_times)
         mean_upd_times_str = list_to_string(mean_update_times)
+        mean_log_times_str = list_to_string(mean_logging_times)
         if iter_times_str is not None:
-            self.logger.info(f"train_iter={iter_times_str} train_data={mean_data_times_str} train={mean_upd_times_str}")
+            self.logger.info(f"train_iter={iter_times_str} train_data={mean_data_times_str} train={mean_upd_times_str} log={mean_log_times_str}")
         else:
-            self.logger.info(f"train_data={mean_data_times_str} train={mean_upd_times_str}")
+            self.logger.info(f"train_data={mean_data_times_str} train={mean_upd_times_str} log={mean_log_times_str}")
 
     def _after_training(self, update_counter, **_):
         total_iter_time = all_gather_nograd(self.total_iter_time)
         total_data_time = all_gather_nograd(self.total_data_time)
         total_update_time = all_gather_nograd(self.total_update_time)
+        total_logging_time = all_gather_nograd(self.total_logging_time)
         self.logger.info("------------------")
         self.logger.info(f"total_train_iter:  {list_to_string(total_iter_time)}")
         self.logger.info(f"total_data_time:   {list_to_string(total_data_time)}")
         self.logger.info(f"total_update_time: {list_to_string(total_update_time)}")
+        self.logger.info(f"total_logging_time: {list_to_string(total_logging_time)}")

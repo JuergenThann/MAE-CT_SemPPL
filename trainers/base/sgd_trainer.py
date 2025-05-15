@@ -211,6 +211,7 @@ class SgdTrainer(TrainerBase):
             iter_step = -1
             data_time = 0.
             update_time = 0.
+            logging_time = 0.
             while True:
                 # check end of epoch
                 remaining_batches = train_batches_per_epoch - (iter_step + 1)
@@ -247,23 +248,27 @@ class SgdTrainer(TrainerBase):
                             train_dataset=train_loader.dataset,
                         )
                     update_time += kp.profiler.last_node.last_time
-                    # log unused parameters
-                    if is_first_update:
-                        unused_param_names = get_paramnames_with_no_gradient(model)
-                        self.logger.info(f"{len(unused_param_names)} unused parameters")
-                        for name in unused_param_names:
-                            self.logger.info(f"- {name}")
-                        is_first_update = False
-                    LoggerBase.call_track_after_accumulation_step(
-                        loggers,
-                        update_counter=self.update_counter,
-                        trainer=self,
-                        model=model,
-                        losses=losses,
-                        update_outputs=update_outputs,
-                        train_dataset=train_loader.dataset,
-                        accumulation_steps=accumulation_steps,
-                    )
+
+                    with kp.named_profile("logging_accumulation_step"):
+                        # log unused parameters
+                        if is_first_update:
+                            unused_param_names = get_paramnames_with_no_gradient(model)
+                            self.logger.info(f"{len(unused_param_names)} unused parameters")
+                            for name in unused_param_names:
+                                self.logger.info(f"- {name}")
+                            is_first_update = False
+                        LoggerBase.call_track_after_accumulation_step(
+                            loggers,
+                            update_counter=self.update_counter,
+                            trainer=self,
+                            model=model,
+                            losses=losses,
+                            update_outputs=update_outputs,
+                            train_dataset=train_loader.dataset,
+                            accumulation_steps=accumulation_steps,
+                        )
+                    logging_time += kp.profiler.last_node.last_time
+
                     # free references to tensors
                     # noinspection PyUnusedLocal
                     update_outputs = None
@@ -275,24 +280,29 @@ class SgdTrainer(TrainerBase):
                     self.update_counter.next_epoch()
 
                 model.eval()
-                times = dict(iter_time=iter_time, data_time=data_time, update_time=update_time)
-                LoggerBase.call_track_after_update_step(
-                    loggers,
-                    update_counter=self.update_counter,
-                    trainer=self,
-                    model=model,
-                    times=times,
-                    train_dataset=train_loader.dataset,
-                )
-                iter_time = None  # only track iter_time for first iteration where the iterator is actually created
-                logger_info_dict = LoggerBase.call_after_update(
-                    loggers,
-                    update_counter=self.update_counter,
-                    effective_batch_size=self.effective_batch_size,
-                    trainer=self,
-                    model=model,
-                    train_dataset=train_loader.dataset,
-                )
+                times = dict(iter_time=iter_time, data_time=data_time, update_time=update_time, logging_time=logging_time)
+                logging_time = 0.  # reset logging time here, so that for the second run all logging is included
+                                   # (call_track_after_accumulation_step, call_track_after_update_step and call_after_update)
+                with kp.named_profile("logging_after_update"):
+                    LoggerBase.call_track_after_update_step(
+                        loggers,
+                        update_counter=self.update_counter,
+                        trainer=self,
+                        model=model,
+                        times=times,
+                        train_dataset=train_loader.dataset,
+                    )
+                    iter_time = None  # only track iter_time for first iteration where the iterator is actually created
+                    logger_info_dict = LoggerBase.call_after_update(
+                        loggers,
+                        update_counter=self.update_counter,
+                        effective_batch_size=self.effective_batch_size,
+                        trainer=self,
+                        model=model,
+                        train_dataset=train_loader.dataset,
+                    )
+                logging_time += kp.profiler.last_node.last_time
+
                 # in case that end_checkpoint is defined via samples/updates
                 if self.update_counter.is_finished:
                     break

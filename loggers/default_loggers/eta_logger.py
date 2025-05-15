@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta
+from time import time
 
 import numpy as np
 
@@ -31,11 +32,14 @@ class EtaLogger(LoggerBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.total_time = 0.
         self.time_since_last_log = 0.
         self.handler = self.LoggerWasCalledHandler()
         self.epoch_format = None
         self.update_format = None
+        self.average_update_time = None
+        self.start_time = None
+        self.last_log_time = None
+        self.unlogged_time = None
 
     @property
     def allows_multiple_interval_types(self):
@@ -56,6 +60,10 @@ class EtaLogger(LoggerBase):
             self.updates_per_log_interval_format = f"{int(np.log10(self.updates_per_every_n_samples)) + 1}d"
         else:
             raise NotImplementedError
+
+        self.start_time = time()
+        self.last_log_time = self.start_time
+        self.unlogged_time = 0.
 
     def _track_after_update_step(self, update_counter, times, **kwargs):
         cur_epoch = update_counter.cur_checkpoint.epoch - update_counter.start_checkpoint.epoch
@@ -97,23 +105,35 @@ class EtaLogger(LoggerBase):
         # iter_time = times["iter_time"]
         # if iter_time is not None:
         #     time_increment += iter_time
-        self.total_time += time_increment
-        self.time_since_last_log += time_increment
-        average_update_time = self.total_time / cur_update
+        current_time = time()
+        training_duration = current_time - self.start_time
+        self.unlogged_time += current_time - self.last_log_time - time_increment
+        self.time_since_last_log += current_time - self.last_log_time
+        self.last_log_time = current_time
+        if self.average_update_time is None:
+            self.average_update_time = time_increment
+        else:
+            # 1% influence after 300s:
+            ema_factor = 0.01 ** (training_duration / (300. * cur_update))
+            self.average_update_time = (self.average_update_time * ema_factor +
+                                        time_increment * (1-ema_factor))
+
+        unlogged_time_per_update = self.unlogged_time / cur_update
+        average_full_update_time = self.average_update_time + unlogged_time_per_update
 
         # log interval ETA
         updates_till_next_log = updates_per_log_interval - updates_since_last_log
-        time_till_next_log = timedelta(seconds=updates_till_next_log * average_update_time)
+        time_till_next_log = timedelta(seconds=updates_till_next_log * average_full_update_time)
         next_log_eta = now + time_till_next_log
         # convert to datetime for formatting
         past_next_log_time = datetime.utcfromtimestamp(self.time_since_last_log)-datetime.utcfromtimestamp(0)
 
         # training ETA
         remaining_training_updates = update_counter.end_checkpoint.update - update_counter.cur_checkpoint.update
-        remaining_training_time = timedelta(seconds=remaining_training_updates * average_update_time)
+        remaining_training_time = timedelta(seconds=remaining_training_updates * average_full_update_time)
         training_eta = now + remaining_training_time
         # convert to datetime for formatting
-        past_training_time = datetime.utcfromtimestamp(self.total_time)-datetime.utcfromtimestamp(0)
+        past_training_time = datetime.utcfromtimestamp(training_duration)-datetime.utcfromtimestamp(0)
 
         if is_rank0():
             logstr = (
@@ -127,7 +147,7 @@ class EtaLogger(LoggerBase):
                 f"training_eta {training_eta.strftime('%Y-%m-%d %H:%M:%S')} "
                 f"({EtaLogger.strfdelta(remaining_training_time)}->"
                 f"{EtaLogger.strfdelta(past_training_time)}) | "
-                f"avg_update {average_update_time:.2f}s"
+                f"avg_update {average_full_update_time:.2f}s"
             )
             if self.handler.was_called:
                 print(logstr)

@@ -1,6 +1,6 @@
 vars:
   # general
-  label_percentage: 0.1
+  label_percentage: 0.01
   beta2: 0.999
   warmup_epochs: 5
   max_epochs: 69
@@ -12,13 +12,13 @@ vars:
   hpo_type: null
 
   # encoder
-  lr_encoder: 0.001
+  lr_encoder: 0.0003
   target_factor_encoder: 0.996
   layerwise_lr_decay: 1.0
   weight_decay_encoder: 1.0e-6
 
   # SemPPL
-  lr_semppl: 0.001
+  lr_semppl: 0.0003
   target_factor_semppl: 0.996
   min_scale_semppl: 0.08
   loss_weight_semppl: 1.0

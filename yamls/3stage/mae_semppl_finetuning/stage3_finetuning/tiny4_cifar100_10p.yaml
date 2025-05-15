@@ -1,14 +1,13 @@
 vars:
   label_percentage: 0.1
-  lr: 0.002
-  min_lr: 1e-6
+  lr: 0.004
   weight_decay: 0.3
   beta2: 0.999
   layerwise_lr_decay: 0.75
-  batch_size: 512
+  batch_size: 500
   warmup_epochs: 20
   max_epochs: 150
-  min_scale: 0.8
+  crop: 0.8
   randaug_num_ops: 1
   randaug_magnitude: 9
   randaug_magnitude_std: 0.5
@@ -17,13 +16,25 @@ vars:
   mixup: 0.8
   cutmix: 1.0
   drop_path: 0.0
-  continue_from_stage_id: s77n3z9a
+  continue_from_stage_id: fjsq77d3
   continue_from_stage_name: cifar100_stage2_mae_semppl
+  collators:
+    - kind: kd_mix_collator
+      mixup_alpha: ${vars.mixup}
+      cutmix_alpha: ${vars.cutmix}
+      mixup_p: 0.5
+      cutmix_p: 0.5
+      apply_mode: batch
+      lamb_mode: batch
+      shuffle_mode: flip
+  hpo_type: null
+  prev_stage_fullname: CIFAR-100 MAE + SemPPL 1% (aug=SimpSemPPL smallcrop=0.08-1)
 
-name: CIFAR-100 MAE + SemPPL 10% (aug=SimpSemPPL smallcrop=0.08-1) + Fine-Tuning 10% (MAE 1op crop0.8 nodroppath lwlrd+ 150ep)
+  name: ${vars.prev_stage_fullname} + Fine-Tuning ${eval:int(${vars.label_percentage} * 100)}% (MAE ${eval:'' if '${vars.hpo_type}' == 'None' else '${vars.hpo_type} '}${vars.randaug_num_ops}op crop${vars.crop} ${eval:'no' if ${vars.drop_path} == 0.0 else ''}droppath ${eval:'no' if "${vars.collators}" == 'None' else ''}mixup lr${vars.lr} lwlrd${vars.layerwise_lr_decay} ${vars.max_epochs}ep BS${vars.batch_size})
+
+name: ${vars.name}
 stage_name: cifar100_stage3_mae_semppl_finetuning
 ignore_stage_name: true
-num_workers: 1
 datasets:
   train:
     kind: torchvision_dataset_wrapper
@@ -43,7 +54,7 @@ datasets:
           - kind: kd_random_resized_crop
             size: 32
             scale:
-              - ${vars.min_scale}
+              - ${vars.crop}
               - 1.0
             interpolation: bicubic
           - kind: kd_rand_augment
@@ -56,15 +67,7 @@ datasets:
           - kind: kd_cifar100_norm
       - kind: label_smoothing_wrapper
         smoothing: ${vars.label_smoothing}
-    collators:
-      - kind: kd_mix_collator
-        mixup_alpha: ${vars.mixup}
-        cutmix_alpha: ${vars.cutmix}
-        mixup_p: 0.5
-        cutmix_p: 0.5
-        apply_mode: batch
-        lamb_mode: batch
-        shuffle_mode: flip
+    collators: ${vars.collators}
   train_unaugmented:
     kind: torchvision_dataset_wrapper
     dataset_identifier: cifar100
@@ -107,7 +110,7 @@ model:
     initializer:
       checkpoint: last
       kind: previous_run_initializer
-      model_name: mae_contheads_vit.target_encoder
+      model_name: mae_contheads_vit.encoder
       stage_id: ${vars.continue_from_stage_id}
       stage_name: ${vars.continue_from_stage_name}
     optim:
@@ -128,7 +131,6 @@ model:
           kind: linear_increasing
         - exclude_last: true
           kind: cosine_decreasing
-          abs_end_value: ${eval:${vars.min_lr}/${vars.lr}}
   head:
     kind: heads.linear_head
     nonaffine_batchnorm: true
@@ -150,7 +152,6 @@ model:
           kind: linear_increasing
         - exclude_last: true
           kind: cosine_decreasing
-          abs_end_value: ${eval:${vars.min_lr}/${vars.lr}}
     initializer:
       kind: trunc_normal_initializer
       std: 0.01
@@ -164,9 +165,15 @@ trainer:
     - kind: accuracy_logger
       every_n_epochs: 1
       dataset_key: train
+      top_k:
+        - 1
+        - 5
     - kind: accuracy_logger
       every_n_epochs: 1
       dataset_key: test
+      top_k:
+        - 1
+        - 5
     - kind: loss_logger
       every_n_epochs: 1
       dataset_key: train
@@ -176,10 +183,7 @@ trainer:
     - kind: checkpoint_logger
       save_latest_optim: false
       save_optim: false
-      every_n_epochs: 50
-    - kind: best_model_logger
-      every_n_epochs: 1
-      metric_key: accuracy1/test/main
+      every_n_epochs: ${eval:${vars.max_epochs}+1}
     - kind: best_metric_logger
       every_n_epochs: 1
       pattern: accuracy1/train*
@@ -193,6 +197,20 @@ trainer:
     - kind: best_metric_logger
       every_n_epochs: 1
       pattern: accuracy1/test*
+      log_absolute_best: true
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy5/train*
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy5/train*
+      log_absolute_best: true
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy5/test*
+    - kind: best_metric_logger
+      every_n_epochs: 1
+      pattern: accuracy5/test*
       log_absolute_best: true
     - kind: feature_umap_logger
       dataset_key: test_small
@@ -278,6 +296,14 @@ summary_summarizers:
     pattern: accuracy1/test*/last
   - kind: best_metric_summary_summarizer
     pattern: accuracy1/test*/max
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy5/train*/last
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy5/train*/max
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy5/test*/last
+  - kind: best_metric_summary_summarizer
+    pattern: accuracy5/test*/max
   - kind: best_metric_summary_summarizer
     pattern: knn_accuracy/knn*/GenericExtractor-batchnorm/train_unaugmented-test/max
   - kind: best_metric_summary_summarizer

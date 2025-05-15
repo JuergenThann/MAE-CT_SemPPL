@@ -23,7 +23,6 @@ vars:
 name: CIFAR-100 MAE + Fine-Tuning 10% (MAE 1op crop0.8 nodroppath lr+ lwlrd+ 150ep)
 stage_name: cifar100_stage2_mae_finetuning
 ignore_stage_name: true
-num_workers: 1
 datasets:
   train:
     kind: torchvision_dataset_wrapper
@@ -176,10 +175,7 @@ trainer:
     - kind: checkpoint_logger
       save_latest_optim: false
       save_optim: false
-      every_n_epochs: 50
-    - kind: best_model_logger
-      every_n_epochs: 1
-      metric_key: accuracy1/test/main
+      every_n_epochs: ${eval:${vars.max_epochs}+1}
     - kind: best_metric_logger
       every_n_epochs: 1
       pattern: accuracy1/train*
